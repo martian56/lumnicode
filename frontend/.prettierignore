@@ -1,0 +1,9 @@
+node_modules
+dist
+build
+.env
+.env.local
+.env.production
+.DS_Store
+Thumbs.db
+*.log
