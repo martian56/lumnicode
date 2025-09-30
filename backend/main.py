@@ -4,7 +4,7 @@ Main FastAPI application entry point for Lumnicode.
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from src.api import auth, projects, files, assist, health, debug
+from src.api import auth, projects, files, assist, health, debug, api_keys, websocket, ai_generation
 from src.db.database import engine, Base
 from src.config import settings
 from src.services.ai_service import ai_service
@@ -40,6 +40,9 @@ app.include_router(projects.router, prefix="/projects", tags=["projects"])
 app.include_router(files.router, prefix="/files", tags=["files"])
 app.include_router(assist.router, prefix="/assist", tags=["assist"])
 app.include_router(debug.router, prefix="/debug", tags=["debug"])
+app.include_router(api_keys.router, prefix="/api-keys", tags=["api-keys"])
+app.include_router(websocket.router, tags=["websocket"])
+app.include_router(ai_generation.router, prefix="/ai", tags=["ai-generation"])
 
 
 @app.on_event("startup")

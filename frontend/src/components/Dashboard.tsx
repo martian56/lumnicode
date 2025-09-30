@@ -1,7 +1,15 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { UserButton, useAuth } from '@clerk/clerk-react'
-import { Plus, FolderOpen, Calendar, Search, Code2, Sparkles, ArrowRight, Filter, Grid, List } from 'lucide-react'
+import { Helmet } from 'react-helmet-async'
+import { 
+  Plus, 
+  FolderOpen, 
+  Sparkles, 
+  Activity,
+  TrendingUp,
+  Key
+} from 'lucide-react'
 import { apiClient } from '../lib/api'
 
 interface Project {
@@ -10,123 +18,129 @@ interface Project {
   description?: string
   created_at: string
   updated_at?: string
+  tech_stack?: string[]
+  status?: string
 }
 
 export default function Dashboard() {
-  const [projects, setProjects] = useState<Project[]>([])
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [showCreateModal, setShowCreateModal] = useState(false)
-  const [newProject, setNewProject] = useState({ name: '', description: '' })
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [stats, setStats] = useState({
+    totalProjects: 0,
+    recentActivity: 0,
+    aiAssistance: 0,
+    productivity: 0
+  })
+  const [recentProjects, setRecentProjects] = useState<Project[]>([])
   const navigate = useNavigate()
   const { getToken } = useAuth()
 
   useEffect(() => {
-    loadProjects()
+    loadStats()
   }, [])
 
-  const loadProjects = async () => {
+  const loadStats = async () => {
     try {
       const token = await getToken()
       const response = await apiClient.get('/projects', {
         headers: { Authorization: `Bearer ${token}` }
       })
-      setProjects(response.data)
-    } catch (error) {
-      console.error('Failed to load projects:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const createProject = async () => {
-    if (!newProject.name.trim()) return
-
-    try {
-      const token = await getToken()
-      const response = await apiClient.post('/projects', newProject, {
-        headers: { Authorization: `Bearer ${token}` }
+      const projects = response.data
+      
+      // Sort projects by most recent activity (updated_at or created_at)
+      const sortedProjects = projects.sort((a: Project, b: Project) => {
+        const aTime = new Date(a.updated_at || a.created_at).getTime()
+        const bTime = new Date(b.updated_at || b.created_at).getTime()
+        return bTime - aTime
       })
-      setProjects([...projects, response.data])
-      setNewProject({ name: '', description: '' })
-      setShowCreateModal(false)
+      
+      // Get the 4 most recent projects
+      const recent = sortedProjects.slice(0, 4)
+      setRecentProjects(recent)
+      
+      setStats({
+        totalProjects: projects.length,
+        recentActivity: projects.filter((p: Project) => {
+          const weekAgo = new Date()
+          weekAgo.setDate(weekAgo.getDate() - 7)
+          return new Date(p.created_at) > weekAgo
+        }).length,
+        aiAssistance: Math.floor(Math.random() * 50) + 20, // Mock data
+        productivity: Math.floor(Math.random() * 30) + 70 // Mock data
+      })
     } catch (error) {
-      console.error('Failed to create project:', error)
+      console.error('Failed to load stats:', error)
     }
   }
 
-  const filteredProjects = projects.filter(project =>
-    project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    project.description?.toLowerCase().includes(searchTerm.toLowerCase())
-  )
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    })
+  const formatRelativeTime = (dateString: string) => {
+    const now = new Date()
+    const date = new Date(dateString)
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
+    
+    // Less than 10 seconds
+    if (diffInSeconds < 10) return 'Just now'
+    
+    // Less than 1 minute
+    if (diffInSeconds < 60) return `${diffInSeconds}s ago`
+    
+    // Less than 1 hour
+    const diffInMinutes = Math.floor(diffInSeconds / 60)
+    if (diffInMinutes < 60) return `${diffInMinutes}m ago`
+    
+    // Less than 1 day
+    const diffInHours = Math.floor(diffInSeconds / (60 * 60))
+    if (diffInHours < 24) return `${diffInHours}h ago`
+    
+    // Less than 1 week
+    const diffInDays = Math.floor(diffInSeconds / (60 * 60 * 24))
+    if (diffInDays < 7) return `${diffInDays}d ago`
+    
+    // More than a week - show formatted date
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   }
+
+  const getActivityIcon = (project: Project) => {
+    // Determine activity type based on when it was last updated vs created
+    const updatedAt = project.updated_at ? new Date(project.updated_at) : null
+    const createdAt = new Date(project.created_at)
+    
+    if (!updatedAt || updatedAt.getTime() === createdAt.getTime()) {
+      return Plus // Newly created
+    } else {
+      return Activity // Recently updated
+    }
+  }
+
+  const getActivityText = (project: Project) => {
+    const updatedAt = project.updated_at ? new Date(project.updated_at) : null
+    const createdAt = new Date(project.created_at)
+    
+    if (!updatedAt || updatedAt.getTime() === createdAt.getTime()) {
+      return 'Created project'
+    } else {
+      return 'Updated project'
+    }
+  }
+
 
   return (
-    <div className="min-h-screen bg-black text-white relative overflow-hidden">
-      {/* Grid Background */}
-      <div className="absolute inset-0 opacity-20">
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage: `
-            linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px)
-          `,
-            backgroundSize: "50px 50px",
-          }}
-        ></div>
-      </div>
-
-      <div className="relative z-10">
+    <>
+      <Helmet>
+        <title>Dashboard - Lumnicode</title>
+        <meta name="description" content="Your AI-powered development dashboard. Manage projects, track activity, and start building with AI assistance." />
+      </Helmet>
       {/* Header */}
       <header className="bg-gray-900/80 backdrop-blur-xl border-b border-gray-700/50 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
+            {/* Page Title */}
             <div className="flex items-center space-x-4">
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl blur opacity-75"></div>
-                <div className="relative bg-gray-900/80 backdrop-blur-xl rounded-xl p-2">
-                  <Code2 className="h-8 w-8 text-white" />
-                </div>
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-                  Lumnicode
-                </h1>
-                <p className="text-xs text-gray-400">AI-Powered Code Editor</p>
-              </div>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                Dashboard
+              </h1>
             </div>
-            <div className="flex items-center space-x-4">
-              <div className="hidden md:flex items-center space-x-2 bg-gray-700/50 rounded-xl p-1">
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`p-2 rounded-lg transition-all duration-200 ${
-                    viewMode === 'grid'
-                      ? 'bg-purple-600 text-white shadow-lg'
-                      : 'text-gray-400 hover:text-white hover:bg-gray-600/50'
-                  }`}
-                >
-                  <Grid className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={`p-2 rounded-lg transition-all duration-200 ${
-                    viewMode === 'list'
-                      ? 'bg-purple-600 text-white shadow-lg'
-                      : 'text-gray-400 hover:text-white hover:bg-gray-600/50'
-                  }`}
-                >
-                  <List className="h-4 w-4" />
-                </button>
-              </div>
+
+            {/* User Controls */}
+            <div className="flex items-center">
               <UserButton
                 afterSignOutUrl="/"
                 appearance={{
@@ -141,188 +155,212 @@ export default function Dashboard() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Dashboard Header */}
-        <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 lg:gap-6 mb-6 lg:mb-8">
-          <div>
-            <h2 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent mb-2">
-              Your Projects
+      <main className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+          {/* Welcome Section */}
+          <div className="mb-8">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent mb-2">
+              Welcome back! 👋
             </h2>
-            <p className="text-gray-400 text-base lg:text-lg">Manage and organize your coding projects with AI assistance</p>
-          </div>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="group bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 lg:px-6 py-3 rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-purple-500/25 flex items-center space-x-2 font-medium w-full sm:w-auto justify-center"
-          >
-            <Plus className="h-5 w-5 group-hover:rotate-90 transition-transform duration-300" />
-            <span>New Project</span>
-          </button>
-        </div>
-
-        {/* Search and Filters */}
-        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-6 lg:mb-8">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 sm:h-5 sm:w-5" />
-            <input
-              type="text"
-              placeholder="Search projects..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 sm:pl-12 pr-4 py-3 bg-gray-800/50 border border-gray-700/50 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-white placeholder-gray-400 backdrop-blur-xl transition-all duration-200 text-sm sm:text-base"
-            />
-          </div>
-          <button className="bg-gray-800/50 border border-gray-700/50 text-gray-300 px-4 py-3 rounded-xl hover:bg-gray-700/50 transition-all duration-200 flex items-center space-x-2 text-sm sm:text-base">
-            <Filter className="h-4 w-4 sm:h-5 sm:w-5" />
-            <span>Filter</span>
-          </button>
-        </div>
-
-        {/* Projects Display */}
-        {loading ? (
-          <div className="flex justify-center items-center h-96">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-16 w-16 border-4 border-purple-500 border-t-transparent mx-auto mb-4"></div>
-              <p className="text-gray-400">Loading your projects...</p>
-            </div>
-          </div>
-        ) : filteredProjects.length === 0 ? (
-          <div className="text-center py-20">
-            <div className="bg-gradient-to-br from-gray-800/50 to-gray-700/50 rounded-3xl p-8 w-fit mx-auto mb-8 backdrop-blur-xl border border-gray-700/50">
-              <FolderOpen className="mx-auto h-16 w-16 text-gray-500" />
-            </div>
-            <h3 className="text-2xl font-bold text-white mb-4">
-              {searchTerm ? 'No projects found' : 'No projects yet'}
-            </h3>
-            <p className="text-gray-400 text-lg mb-8 max-w-md mx-auto">
-              {searchTerm
-                ? 'Try adjusting your search terms or create a new project to get started.'
-                : 'Create your first project and start building amazing applications with AI assistance.'
-              }
+            <p className="text-gray-400 text-base lg:text-lg">
+              Ready to build something amazing with AI assistance?
             </p>
-            {!searchTerm && (
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="group bg-gradient-to-r from-purple-600 to-pink-600 text-white px-8 py-4 rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-purple-500/25 flex items-center space-x-2 font-medium mx-auto"
-              >
-                <Sparkles className="h-5 w-5 group-hover:animate-pulse" />
-                <span>Create Your First Project</span>
-                <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
-              </button>
-            )}
           </div>
-        ) : (
-          <div className={`${
-            viewMode === 'grid'
-              ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
-              : 'space-y-4'
-          }`}>
-            {filteredProjects.map((project, index) => (
-              <div
-                key={project.id}
-                onClick={() => navigate(`/project/${project.id}`)}
-                className={`group bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-4 sm:p-6 hover:bg-gray-700/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/10 cursor-pointer ${
-                  viewMode === 'list' ? 'flex items-center space-x-4 sm:space-x-6' : ''
-                }`}
-                style={{ animationDelay: `${index * 100}ms` }}
-              >
-                <div className={`flex items-start justify-between ${viewMode === 'list' ? 'flex-1' : ''}`}>
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-3">
-                      <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl p-2 group-hover:scale-110 transition-transform duration-300">
-                        <FolderOpen className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <h3 className="text-lg sm:text-xl font-bold text-white group-hover:text-purple-300 transition-colors truncate">
-                          {project.name}
-                        </h3>
-                        <div className="flex items-center text-xs sm:text-sm text-gray-400">
-                          <Calendar className="h-3 w-3 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
-                          <span>Created {formatDate(project.created_at)}</span>
-                        </div>
-                      </div>
-                    </div>
-                    {project.description && (
-                      <p className="text-gray-300 text-sm leading-relaxed mb-4 line-clamp-2">
-                        {project.description}
-                      </p>
-                    )}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2 text-xs text-gray-500">
-                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                        <span>Active</span>
-                      </div>
-                      <ArrowRight className="h-4 w-4 text-gray-400 group-hover:text-purple-400 group-hover:translate-x-1 transition-all duration-300" />
-                    </div>
-                  </div>
+
+          {/* AI Assistant Quick Access */}
+          <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 border border-purple-500/30 rounded-2xl p-6 mb-8">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl p-3">
+                  <Sparkles className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">AI Assistant Ready</h3>
+                  <p className="text-gray-300 text-sm">Start a conversation to build your next project</p>
                 </div>
               </div>
-            ))}
+              <button
+                onClick={() => navigate('/create-project')}
+                className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all duration-300 shadow-lg hover:shadow-purple-500/25 flex items-center space-x-2"
+              >
+                <Sparkles className="h-4 w-4" />
+                <span>Start Chat</span>
+              </button>
+            </div>
           </div>
-        )}
+
+          {/* Quick Stats */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-8">
+            <div className="bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-4 lg:p-6">
+              <div className="flex items-center space-x-3">
+                <div className="bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl p-2 lg:p-3">
+                  <FolderOpen className="h-4 w-4 lg:h-6 lg:w-6 text-white" />
+                </div>
+                <div>
+                  <p className="text-lg lg:text-2xl font-bold text-white">{stats.totalProjects}</p>
+                  <p className="text-xs lg:text-sm text-gray-400">Total Projects</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-4 lg:p-6">
+              <div className="flex items-center space-x-3">
+                <div className="bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl p-2 lg:p-3">
+                  <Activity className="h-4 w-4 lg:h-6 lg:w-6 text-white" />
+                </div>
+                <div>
+                  <p className="text-lg lg:text-2xl font-bold text-white">{stats.recentActivity}</p>
+                  <p className="text-xs lg:text-sm text-gray-400">This Week</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-4 lg:p-6">
+              <div className="flex items-center space-x-3">
+                <div className="bg-gradient-to-r from-purple-500 to-violet-500 rounded-xl p-2 lg:p-3">
+                  <Sparkles className="h-4 w-4 lg:h-6 lg:w-6 text-white" />
+                </div>
+                <div>
+                  <p className="text-lg lg:text-2xl font-bold text-white">{stats.aiAssistance}</p>
+                  <p className="text-xs lg:text-sm text-gray-400">AI Suggestions</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-4 lg:p-6">
+              <div className="flex items-center space-x-3">
+                <div className="bg-gradient-to-r from-orange-500 to-red-500 rounded-xl p-2 lg:p-3">
+                  <TrendingUp className="h-4 w-4 lg:h-6 lg:w-6 text-white" />
+                </div>
+                <div>
+                  <p className="text-lg lg:text-2xl font-bold text-white">{stats.productivity}%</p>
+                  <p className="text-xs lg:text-sm text-gray-400">Productivity</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Getting Started Section */}
+          <div className="mb-8">
+            <h3 className="text-xl font-semibold text-white mb-6">Get Started</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <button
+                onClick={() => navigate('/create-project')}
+                className="bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-6 hover:bg-gray-700/50 transition-all duration-200 text-left group"
+              >
+                <div className="flex items-center space-x-4 mb-4">
+                  <div className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl p-3">
+                    <Plus className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-white group-hover:text-purple-300 transition-colors">
+                      Create New Project
+                    </h4>
+                    <p className="text-sm text-gray-400">Start building with AI</p>
+                  </div>
+                </div>
+                <p className="text-gray-300 text-sm">
+                  Use our AI Assistant to create your next project with the perfect tech stack.
+                </p>
+              </button>
+
+              <button
+                onClick={() => navigate('/projects')}
+                className="bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-6 hover:bg-gray-700/50 transition-all duration-200 text-left group"
+              >
+                <div className="flex items-center space-x-4 mb-4">
+                  <div className="bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl p-3">
+                    <FolderOpen className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-white group-hover:text-purple-300 transition-colors">
+                      Browse Projects
+                    </h4>
+                    <p className="text-sm text-gray-400">View all your projects</p>
+                  </div>
+                </div>
+                <p className="text-gray-300 text-sm">
+                  Manage, organize, and collaborate on your development projects.
+                </p>
+              </button>
+
+              <button
+                onClick={() => navigate('/api-keys')}
+                className="bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-6 hover:bg-gray-700/50 transition-all duration-200 text-left group"
+              >
+                <div className="flex items-center space-x-4 mb-4">
+                  <div className="bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl p-3">
+                    <Key className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-white group-hover:text-purple-300 transition-colors">
+                      Manage API Keys
+                    </h4>
+                    <p className="text-sm text-gray-400">Configure AI services</p>
+                  </div>
+                </div>
+                <p className="text-gray-300 text-sm">
+                  Add and manage your AI service API keys for enhanced functionality.
+                </p>
+              </button>
+            </div>
+          </div>
+
+          {/* Recent Activity */}
+          <div className="mt-12">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-semibold text-white">Recent Activity</h3>
+              <button 
+                onClick={() => navigate('/projects')}
+                className="text-purple-400 hover:text-purple-300 text-sm font-medium transition-colors"
+              >
+                View All Projects
+              </button>
+            </div>
+            <div className="bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-6">
+              <div className="space-y-4">
+                {recentProjects.length > 0 ? (
+                  recentProjects.map((project) => {
+                    const ActivityIcon = getActivityIcon(project)
+                    const activityText = getActivityText(project)
+                    const timeString = formatRelativeTime(project.updated_at || project.created_at)
+                    
+                    return (
+                      <div 
+                        key={project.id} 
+                        className="flex items-center space-x-4 p-3 hover:bg-gray-700/30 rounded-lg transition-colors cursor-pointer"
+                        onClick={() => navigate(`/project/${project.id}`)}
+                      >
+                        <div className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg p-2">
+                          <ActivityIcon className="h-4 w-4 text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-white font-medium">{activityText}</p>
+                          <p className="text-gray-400 text-sm">{project.name}</p>
+                        </div>
+                        <span className="text-gray-500 text-sm">{timeString}</span>
+                      </div>
+                    )
+                  })
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="bg-gradient-to-br from-gray-800/50 to-gray-700/50 rounded-2xl p-6 w-fit mx-auto mb-4 backdrop-blur-xl border border-gray-700/50">
+                      <FolderOpen className="mx-auto h-12 w-12 text-gray-500" />
+                    </div>
+                    <h4 className="text-lg font-semibold text-white mb-2">No projects yet</h4>
+                    <p className="text-gray-400 text-sm mb-4">Create your first project to see recent activity here.</p>
+                    <button
+                      onClick={() => navigate('/create-project')}
+                      className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-300 text-sm font-medium"
+                    >
+                      Create Project
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
       </main>
-
-      {/* Create Project Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800/95 backdrop-blur-xl rounded-3xl p-6 sm:p-8 w-full max-w-md mx-auto border border-gray-700/50 shadow-2xl">
-            <div className="flex items-center space-x-3 sm:space-x-4 mb-4 sm:mb-6">
-              <div className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl p-2 sm:p-3">
-                <Plus className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
-              </div>
-              <div>
-                <h3 className="text-xl sm:text-2xl font-bold text-white">Create New Project</h3>
-                <p className="text-gray-400 text-sm">Start building something amazing</p>
-              </div>
-            </div>
-
-            <div className="space-y-4 sm:space-y-6">
-              <div>
-                <label className="block text-sm font-semibold text-gray-300 mb-2">
-                  Project Name
-                </label>
-                <input
-                  type="text"
-                  value={newProject.name}
-                  onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
-                  className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-white placeholder-gray-400 backdrop-blur-xl transition-all duration-200 text-base"
-                  placeholder="My Awesome Project"
-                  autoFocus
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-300 mb-2">
-                  Description <span className="text-gray-500">(optional)</span>
-                </label>
-                <textarea
-                  value={newProject.description}
-                  onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
-                  className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-white placeholder-gray-400 backdrop-blur-xl transition-all duration-200 resize-none text-base"
-                  rows={3}
-                  placeholder="Brief description of your project..."
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-4 mt-6 sm:mt-8">
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className="px-6 py-3 text-gray-300 border border-gray-600/50 rounded-xl hover:bg-gray-700/50 hover:text-white transition-all duration-200 order-2 sm:order-1"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={createProject}
-                disabled={!newProject.name.trim()}
-                className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-purple-500/25 font-medium order-1 sm:order-2"
-              >
-                Create Project
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-    </div>
+    </>
   )
 }
