@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Editor } from '@monaco-editor/react';
+import { Helmet } from 'react-helmet-async';
 import {
   Lightbulb,
   Bug,
@@ -17,10 +18,17 @@ import {
   FolderPlus,
   Plus,
   Trash2,
-  Save
+  Save,
+  ChevronDown,
+  Play,
+  Pause,
+  Square,
+  MessageSquare
 } from 'lucide-react';
 import { useAuth } from '@clerk/clerk-react';
 import { apiClient } from '../lib/api';
+import { useAIGeneration } from '../hooks/useAIGeneration';
+import AIProgress from './AIProgress';
 
 interface Toast {
   id: string;
@@ -65,6 +73,10 @@ interface AdvancedEditorProps {
   language?: string;
   onBack?: () => void;
   onCodeChange?: (code: string) => void;
+  // AI Generation props
+  aiPrompt?: string;
+  techStack?: string[];
+  autoStartAI?: boolean;
 }
 
 export const AdvancedEditor: React.FC<AdvancedEditorProps> = ({
@@ -72,7 +84,10 @@ export const AdvancedEditor: React.FC<AdvancedEditorProps> = ({
   initialCode = '',
   language = 'javascript',
   onCodeChange,
-  onBack
+  onBack,
+  aiPrompt,
+  techStack = [],
+  autoStartAI = false
 }) => {
   // File management state
   const [project, setProject] = useState<Project | null>(null);
@@ -140,6 +155,100 @@ export const AdvancedEditor: React.FC<AdvancedEditorProps> = ({
   const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant' | 'system'; text: string }>>([]);
   const [chatInput, setChatInput] = useState('');
   const [isChatting, setIsChatting] = useState(false);
+
+  // AI Generation state
+  const [aiPromptInput, setAiPromptInput] = useState(aiPrompt || '');
+
+  // Initialize AI generation hook
+  const {
+    isGenerating: aiIsGenerating,
+    isPaused: aiIsPaused,
+    progress: aiProgress,
+    currentTask: aiCurrentTask,
+    error: aiError,
+    startGeneration,
+    stopGeneration,
+    pauseGeneration,
+    resumeGeneration,
+  } = useAIGeneration({
+    projectId: projectId || '',
+    onProgress: (update) => {
+      console.log('AI Progress Update:', update);
+      if (update.type === 'file_created' || update.type === 'file_updated') {
+        // Refresh files when AI creates/updates files
+        if (projectId) {
+          loadFiles();
+        }
+      }
+    },
+    onComplete: (session) => {
+      console.log('AI Generation Complete:', session);
+      addToast('AI project generation completed!', 'success');
+    },
+    onError: (error) => {
+      console.error('AI Generation Error:', error);
+      addToast(`AI generation error: ${error}`, 'error');
+    },
+  });
+
+  // AI Generation Functions
+  const startAIGeneration = async () => {
+    if (!aiPromptInput.trim() || !projectId) {
+      addToast('Please provide a prompt and ensure project is loaded', 'error');
+      return;
+    }
+
+    try {
+      await startGeneration(aiPromptInput, techStack);
+      addToast('AI generation started!', 'success');
+    } catch (error) {
+      console.error('Failed to start AI generation:', error);
+      addToast('Failed to start AI generation', 'error');
+    }
+  };
+
+  const pauseAIGeneration = async () => {
+    try {
+      await pauseGeneration();
+      addToast('AI generation paused', 'info');
+    } catch (error) {
+      console.error('Failed to pause AI generation:', error);
+      addToast('Failed to pause AI generation', 'error');
+    }
+  };
+
+  const resumeAIGeneration = async () => {
+    try {
+      await resumeGeneration();
+      addToast('AI generation resumed', 'success');
+    } catch (error) {
+      console.error('Failed to resume AI generation:', error);
+      addToast('Failed to resume AI generation', 'error');
+    }
+  };
+
+  const stopAIGeneration = async () => {
+    try {
+      await stopGeneration();
+      addToast('AI generation stopped', 'info');
+    } catch (error) {
+      console.error('Failed to stop AI generation:', error);
+      addToast('Failed to stop AI generation', 'error');
+    }
+  };
+
+  const addAIPrompt = async () => {
+    if (!chatInput.trim()) return;
+    
+    const userPrompt = chatInput.trim();
+    setChatMessages(prev => [...prev, { role: 'user', text: userPrompt }]);
+    setChatInput('');
+
+    // If AI is paused, resume with new context
+    if (aiIsPaused) {
+      await resumeAIGeneration();
+    }
+  };
 
   const sendChatMessage = async () => {
     if (!chatInput.trim()) return;
@@ -260,6 +369,13 @@ export const AdvancedEditor: React.FC<AdvancedEditorProps> = ({
       loadFiles();
     }
   }, [projectId]);
+
+  // Auto-start AI generation if specified
+  useEffect(() => {
+    if (autoStartAI && aiPrompt && techStack.length > 0 && projectId && !aiIsGenerating) {
+      startAIGeneration();
+    }
+  }, [autoStartAI, aiPrompt, techStack, projectId, aiIsGenerating]);
 
   const loadProject = async () => {
     try {
@@ -502,29 +618,34 @@ export const AdvancedEditor: React.FC<AdvancedEditorProps> = ({
               <span className="text-sm truncate">{file.name}</span>
             </div>
             <div className="flex items-center space-x-2">
-              <select
-                value={file.path ? file.path.replace(/\\/g, '/') : ''}
-                onChange={async (e) => {
-                  e.stopPropagation();
-                  const newPath = e.target.value || file.name;
-                  try {
-                    const token = await getToken();
-                    await apiClient.put(`/files/${file.id}`, { path: newPath }, { headers: { Authorization: `Bearer ${token}` } });
-                    setFiles(prev => prev.map(f => f.id === file.id ? { ...f, path: newPath } : f));
-                    addToast('File moved', 'success');
-                  } catch (err) {
-                    console.error('Move file failed', err);
-                    addToast('Failed to move file', 'error');
-                  }
-                }}
-                className="bg-transparent text-xs border border-gray-700/20 rounded p-1 text-gray-300"
-                title="Move file to folder"
-              >
-                <option value="">(root)</option>
-                {getAllFolderPaths().map(fp => (
-                  <option key={fp} value={`${fp}/${file.name}`}>{fp}</option>
-                ))}
-              </select>
+              <div className="relative">
+                <select
+                  value={file.path ? file.path.replace(/\\/g, '/') : ''}
+                  onChange={async (e) => {
+                    e.stopPropagation();
+                    const newPath = e.target.value || file.name;
+                    try {
+                      const token = await getToken();
+                      await apiClient.put(`/files/${file.id}`, { path: newPath }, { headers: { Authorization: `Bearer ${token}` } });
+                      setFiles(prev => prev.map(f => f.id === file.id ? { ...f, path: newPath } : f));
+                      addToast('File moved', 'success');
+                    } catch (err) {
+                      console.error('Move file failed', err);
+                      addToast('Failed to move file', 'error');
+                    }
+                  }}
+                  className="appearance-none bg-gray-800/50 backdrop-blur-sm text-xs border border-gray-700/50 rounded-lg px-2 py-1 text-gray-300 focus:ring-1 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 hover:bg-gray-700/50 cursor-pointer min-w-[80px]"
+                  title="Move file to folder"
+                >
+                  <option value="" className="bg-gray-800 text-gray-300">(root)</option>
+                  {getAllFolderPaths().map(fp => (
+                    <option key={fp} value={`${fp}/${file.name}`} className="bg-gray-800 text-gray-300">{fp}</option>
+                  ))}
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center pr-1 pointer-events-none">
+                  <ChevronDown className="h-3 w-3 text-gray-400" />
+                </div>
+              </div>
               <button
                 onClick={(e) => { e.stopPropagation(); deleteFile(file.id); }}
                 className="p-1 hover:bg-red-500/20 rounded text-gray-500 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
@@ -1165,7 +1286,12 @@ export const AdvancedEditor: React.FC<AdvancedEditorProps> = ({
   };
 
   return (
-  <div className="min-h-screen flex flex-col bg-black text-white relative overflow-hidden">
+    <>
+      <Helmet>
+        <title>Code Editor - Lumnicode</title>
+        <meta name="description" content="AI-powered code editor with real-time assistance, file management, and intelligent code generation." />
+      </Helmet>
+      <div className="min-h-screen flex flex-col bg-black text-white relative overflow-hidden">
       {/* Grid Background */}
       <div className="absolute inset-0 opacity-20">
         <div
@@ -1211,6 +1337,46 @@ export const AdvancedEditor: React.FC<AdvancedEditorProps> = ({
         </div>
 
         <div className="flex items-center space-x-2 flex-wrap gap-2">
+          {/* AI Generation Controls */}
+          {projectId && (
+            <>
+              {!aiIsGenerating ? (
+                <button
+                  className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 border border-purple-500/50 text-sm rounded-lg flex items-center space-x-2 text-white transition-all duration-200 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={startAIGeneration}
+                  disabled={!aiPromptInput.trim()}
+                >
+                  <Play className="w-4 h-4" />
+                  <span>Start AI</span>
+                </button>
+              ) : (
+                <>
+                  <button
+                    className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 border border-yellow-500/50 text-sm rounded-lg flex items-center space-x-2 text-white transition-all duration-200 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={aiIsPaused ? resumeAIGeneration : pauseAIGeneration}
+                    disabled={aiIsGenerating && !aiIsPaused}
+                  >
+                    {aiIsPaused ? (
+                      <Play className="w-4 h-4" />
+                    ) : (
+                      <Pause className="w-4 h-4" />
+                    )}
+                    <span>{aiIsPaused ? 'Resume' : 'Pause'}</span>
+                  </button>
+                  <button
+                    className="px-4 py-2 bg-red-600 hover:bg-red-700 border border-red-500/50 text-sm rounded-lg flex items-center space-x-2 text-white transition-all duration-200 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={stopAIGeneration}
+                    disabled={!aiIsGenerating}
+                  >
+                    <Square className="w-4 h-4" />
+                    <span>Stop</span>
+                  </button>
+                </>
+              )}
+              <div className="w-px h-8 bg-gray-600/50"></div>
+            </>
+          )}
+
           <button
             className="px-4 py-2 bg-gray-700/50 hover:bg-gray-600/50 border border-gray-600/50 text-sm rounded-lg flex items-center space-x-2 text-gray-200 hover:text-white transition-all duration-200 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={analyzeCode}
@@ -1279,15 +1445,20 @@ export const AdvancedEditor: React.FC<AdvancedEditorProps> = ({
           </button>
           <div className="flex items-center space-x-2">
             <label className="text-xs text-gray-300">Editor BG</label>
-            <select
-              value={editorBg}
-              onChange={(e) => changeEditorBg(e.target.value)}
-              className="bg-gray-800/50 border border-gray-600/50 text-sm rounded p-1 text-white"
-            >
-              {colorOptions.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
+            <div className="relative">
+              <select
+                value={editorBg}
+                onChange={(e) => changeEditorBg(e.target.value)}
+                className="appearance-none bg-gray-900/50 backdrop-blur-sm border border-gray-700/50 text-sm rounded-lg px-3 py-1 text-white focus:ring-1 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 hover:bg-gray-800/50 cursor-pointer"
+              >
+                {colorOptions.map((c) => (
+                  <option key={c} value={c} className="bg-gray-900 text-white">{c}</option>
+                ))}
+              </select>
+              <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                <ChevronDown className="h-3 w-3 text-gray-400" />
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -1414,6 +1585,51 @@ export const AdvancedEditor: React.FC<AdvancedEditorProps> = ({
 
         {/* AI Panel */}
         <div className="w-96 border-l border-gray-700/50 backdrop-blur-xl bg-gray-900/80 relative z-10 hidden lg:block">
+          {/* AI Progress Panel */}
+          {aiIsGenerating && (
+            <div className="border-b border-gray-700/50 p-4">
+              <AIProgress
+                isGenerating={aiIsGenerating}
+                isPaused={aiIsPaused}
+                progress={aiProgress}
+                currentTask={aiCurrentTask || 'AI is working...'}
+                error={aiError}
+                onStop={stopAIGeneration}
+                onPause={pauseAIGeneration}
+                onResume={resumeAIGeneration}
+              />
+            </div>
+          )}
+
+          {/* AI Prompt Input */}
+          {projectId && (
+            <div className="border-b border-gray-700/50 p-4">
+              <div className="space-y-3">
+                <label className="block text-sm font-semibold text-gray-300">
+                  AI Prompt
+                </label>
+                <textarea
+                  value={aiPromptInput}
+                  onChange={(e) => setAiPromptInput(e.target.value)}
+                  placeholder="Describe what you want the AI to build..."
+                  className="w-full p-3 bg-gray-800/50 border border-gray-700/50 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none"
+                  rows={3}
+                  disabled={aiIsGenerating}
+                />
+                <div className="flex space-x-2">
+                  <button
+                    onClick={addAIPrompt}
+                    disabled={!chatInput.trim() || aiIsGenerating}
+                    className="flex-1 px-3 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed border border-purple-500/50 text-sm rounded-lg text-white transition-all duration-200"
+                  >
+                    <MessageSquare className="w-4 h-4 inline mr-2" />
+                    Add Prompt
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Tab Navigation */}
           <div className="flex border-b border-gray-700/50 backdrop-blur-sm">
             <button
@@ -1775,5 +1991,6 @@ export const AdvancedEditor: React.FC<AdvancedEditorProps> = ({
         </div>
       )}
     </div>
+    </>
   );
 };

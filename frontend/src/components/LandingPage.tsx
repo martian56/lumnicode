@@ -1,4 +1,5 @@
 import { SignInButton, SignUpButton } from '@clerk/clerk-react'
+import { Helmet } from 'react-helmet-async'
 
 // Simple icon components to replace lucide-react
 const Code2Icon = () => (
@@ -76,7 +77,12 @@ const GlobeIcon = () => (
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-black text-white relative overflow-hidden">
+    <>
+      <Helmet>
+        <title>Lumnicode - Build with AI using your own API keys</title>
+        <meta name="description" content="Create projects faster with AI assistance. Use your OpenAI, Gemini, or other API keys. No subscriptions, no limits, no credit card required." />
+      </Helmet>
+      <div className="min-h-screen bg-black text-white relative overflow-hidden">
       {/* Grid Background */}
       <div className="absolute inset-0 opacity-20">
         <div
@@ -139,35 +145,35 @@ export default function LandingPage() {
         <div className="px-6 py-24">
           <div className="max-w-6xl mx-auto text-center">
             {/* Badge */}
-            <div className="inline-flex items-center bg-gray-900/50 backdrop-blur-sm border border-gray-700 rounded-full px-4 py-2 mb-8">
+            <div className="inline-flex items-center bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30 rounded-full px-4 py-2 mb-8">
               <div className="w-4 h-4 mr-2">
                 <SparklesIcon />
               </div>
-              <span className="text-sm text-gray-400">AI-Powered Development Platform</span>
+              <span className="text-sm text-green-400 font-medium">100% Free • Bring Your Own API Keys</span>
             </div>
 
             {/* Main Headline */}
             <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold mb-8 leading-tight">
               <span className="bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
-                The AI toolkit for
+                Build with AI using
               </span>
               <br />
               <span className="bg-gradient-to-r from-purple-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent">
-                modern developers
+                your own API keys
               </span>
             </h1>
 
             {/* Subheadline */}
             <p className="text-xl md:text-2xl text-gray-400 mb-12 max-w-4xl mx-auto leading-relaxed">
-              Build applications faster with AI-powered code generation, intelligent suggestions, and seamless
-              collaboration tools designed for the modern development workflow.
+              Create projects faster with AI assistance. Use your OpenAI, Gemini, or other API keys. 
+              No subscriptions, no limits, no credit card required. Build amazing applications for free.
             </p>
 
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
               <SignUpButton mode="modal">
-                <button className="group bg-white text-black px-8 py-4 rounded-xl text-lg font-semibold hover:bg-gray-100 transition-all duration-300 flex items-center space-x-2 w-full sm:w-auto justify-center">
-                  <span>Start Building</span>
+                <button className="group bg-gradient-to-r from-green-500 to-emerald-500 text-white px-8 py-4 rounded-xl text-lg font-semibold hover:from-green-600 hover:to-emerald-600 transition-all duration-300 flex items-center space-x-2 w-full sm:w-auto justify-center shadow-lg hover:shadow-green-500/25">
+                  <span>Start Building Free</span>
                   <div className="w-5 h-5 group-hover:translate-x-1 transition-transform">
                     <ArrowRightIcon />
                   </div>
@@ -186,29 +192,28 @@ export default function LandingPage() {
 
             {/* Trust Indicators */}
             <div className="text-center mb-16">
-              <p className="text-sm text-gray-400 mb-6">Trusted by developers at</p>
+              <p className="text-sm text-gray-400 mb-6">Join developers building the future</p>
               <div className="flex flex-wrap justify-center items-center gap-8 opacity-60">
-                <div className="text-lg font-semibold">Netflix</div>
-                <div className="text-lg font-semibold">Vercel</div>
-                <div className="text-lg font-semibold">GitHub</div>
-                <div className="text-lg font-semibold">OpenAI</div>
-                <div className="text-lg font-semibold">Stripe</div>
+                <div className="text-lg font-semibold">Open Source</div>
+                <div className="text-lg font-semibold">Community Driven</div>
+                <div className="text-lg font-semibold">Privacy First</div>
+                <div className="text-lg font-semibold">No Vendor Lock-in</div>
               </div>
             </div>
 
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
               <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-700 rounded-2xl p-6 text-center">
-                <div className="text-3xl font-bold text-white mb-2">50K+</div>
-                <div className="text-gray-400">Active Developers</div>
+                <div className="text-3xl font-bold text-white mb-2">100%</div>
+                <div className="text-gray-400">Free Forever</div>
               </div>
               <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-700 rounded-2xl p-6 text-center">
-                <div className="text-3xl font-bold text-white mb-2">10M+</div>
-                <div className="text-gray-400">Lines Generated</div>
+                <div className="text-3xl font-bold text-white mb-2">8+</div>
+                <div className="text-gray-400">AI Providers</div>
               </div>
               <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-700 rounded-2xl p-6 text-center">
-                <div className="text-3xl font-bold text-white mb-2">99.9%</div>
-                <div className="text-gray-400">Uptime</div>
+                <div className="text-3xl font-bold text-white mb-2">0$</div>
+                <div className="text-gray-400">Monthly Cost</div>
               </div>
             </div>
           </div>
@@ -252,6 +257,122 @@ export default function LandingPage() {
                   <span className="text-yellow-400">useState</span>
                   <span className="text-white">('')</span>
                 </div>
+                <div className="ml-4">
+                  <span className="text-blue-400">const</span> <span className="text-white">[password, setPassword] = </span>
+                  <span className="text-yellow-400">useState</span>
+                  <span className="text-white">('')</span>
+                </div>
+                <div className="ml-4 mt-4 text-gray-500">{"// AI generates form handling logic"}</div>
+                <div className="ml-4">
+                  <span className="text-blue-400">const</span> <span className="text-white">handleSubmit = </span>
+                  <span className="text-blue-400">async</span> <span className="text-white">(e) =&gt; {"{"}</span>
+                </div>
+                <div className="ml-8 text-gray-500">{"// Your AI-powered validation here"}</div>
+                <div className="ml-8">
+                  <span className="text-white">console.log</span>
+                  <span className="text-white">('Login attempt:', email)</span>
+                </div>
+                <div className="ml-4">
+                  <span className="text-white">{"}"}</span>
+                </div>
+                <div className="ml-4 mt-4">
+                  <span className="text-blue-400">return</span> <span className="text-white">(</span>
+                </div>
+                <div className="ml-8 text-gray-500">{"// AI suggests modern form structure"}</div>
+                <div className="ml-8">
+                  <span className="text-white">&lt;</span><span className="text-red-400">form</span> <span className="text-blue-400">onSubmit</span><span className="text-white">=</span><span className="text-yellow-400">{"{handleSubmit}"}</span><span className="text-white">&gt;</span>
+                </div>
+                <div className="ml-12">
+                  <span className="text-white">&lt;</span><span className="text-red-400">Button</span> <span className="text-blue-400">type</span><span className="text-white">=</span><span className="text-green-400">"submit"</span><span className="text-white">&gt;</span>
+                </div>
+                <div className="ml-16 text-white">Sign In</div>
+                <div className="ml-12">
+                  <span className="text-white">&lt;/</span><span className="text-red-400">Button</span><span className="text-white">&gt;</span>
+                </div>
+                <div className="ml-8">
+                  <span className="text-white">&lt;/</span><span className="text-red-400">form</span><span className="text-white">&gt;</span>
+                </div>
+                <div className="ml-4">
+                  <span className="text-white">)</span>
+                </div>
+                <div className="text-white">{"}"}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Demo Section */}
+        <div className="px-6 py-16">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+                See it in action
+              </h2>
+              <p className="text-xl text-gray-400">
+                Create projects with AI assistance using your own API keys
+              </p>
+            </div>
+            
+            <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-700 rounded-2xl p-8">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center space-x-3">
+                  <div className="flex space-x-2">
+                    <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                    <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                  </div>
+                  <span className="text-sm text-gray-400">Project Creation Flow</span>
+                </div>
+                <div className="text-xs text-gray-400">Live Demo</div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Step 1: Chat */}
+                <div className="bg-gray-800/50 rounded-xl p-4">
+                  <div className="flex items-center space-x-2 mb-3">
+                    <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center text-xs font-bold">1</div>
+                    <span className="text-sm font-medium text-white">AI Chat</span>
+                  </div>
+                  <div className="space-y-2 text-sm">
+                    <div className="bg-gray-700/50 rounded-lg p-2">
+                      <span className="text-blue-400">User:</span> "Create a todo app with React"
+                    </div>
+                    <div className="bg-gray-700/50 rounded-lg p-2">
+                      <span className="text-green-400">AI:</span> "I'll help you create a React todo app with modern features..."
+                    </div>
+                  </div>
+                </div>
+
+                {/* Step 2: Tech Stack */}
+                <div className="bg-gray-800/50 rounded-xl p-4">
+                  <div className="flex items-center space-x-2 mb-3">
+                    <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-xs font-bold">2</div>
+                    <span className="text-sm font-medium text-white">Tech Stack</span>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded">⚛️ React</span>
+                      <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded">🔷 TypeScript</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs bg-cyan-500/20 text-cyan-400 px-2 py-1 rounded">🎨 Tailwind</span>
+                      <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">🟢 Node.js</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Step 3: Project */}
+                <div className="bg-gray-800/50 rounded-xl p-4">
+                  <div className="flex items-center space-x-2 mb-3">
+                    <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center text-xs font-bold">3</div>
+                    <span className="text-sm font-medium text-white">Project Created</span>
+                  </div>
+                  <div className="space-y-2 text-sm">
+                    <div className="text-white font-medium">Todo App</div>
+                    <div className="text-gray-400 text-xs">React + TypeScript + Tailwind</div>
+                    <div className="text-green-400 text-xs">✓ Ready to code</div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -265,12 +386,11 @@ export default function LandingPage() {
                 Everything you need to
                 <span className="bg-gradient-to-r from-purple-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent">
                   {" "}
-                  ship faster
+                  build with AI
                 </span>
               </h2>
               <p className="text-xl text-gray-400 max-w-3xl mx-auto">
-                A complete development platform with AI-powered tools, real-time collaboration, and enterprise-grade
-                security.
+                A complete development platform with AI-powered tools, multi-provider support, and your own API keys.
               </p>
             </div>
 
@@ -282,10 +402,9 @@ export default function LandingPage() {
                     <CpuIcon />
                   </div>
                 </div>
-                <h3 className="text-xl font-bold text-white mb-4">AI Code Generation</h3>
+                <h3 className="text-xl font-bold text-white mb-4">Multi-Provider AI</h3>
                 <p className="text-gray-400 leading-relaxed">
-                  Generate complete components, functions, and applications with natural language prompts. Our AI
-                  understands context and best practices.
+                  Use OpenAI, Google Gemini, Anthropic Claude, and more. Switch between providers seamlessly with intelligent routing and fallbacks.
                 </p>
               </div>
 
@@ -295,10 +414,9 @@ export default function LandingPage() {
                     <ZapIcon />
                   </div>
                 </div>
-                <h3 className="text-xl font-bold text-white mb-4">Instant Deployment</h3>
+                <h3 className="text-xl font-bold text-white mb-4">Your API Keys</h3>
                 <p className="text-gray-400 leading-relaxed">
-                  Deploy your applications instantly with our global edge network. Zero configuration, automatic
-                  scaling, and built-in monitoring.
+                  Bring your own API keys from any provider. No vendor lock-in, no hidden costs. You control your usage and costs.
                 </p>
               </div>
 
@@ -308,10 +426,9 @@ export default function LandingPage() {
                     <UsersIcon />
                   </div>
                 </div>
-                <h3 className="text-xl font-bold text-white mb-4">Team Collaboration</h3>
+                <h3 className="text-xl font-bold text-white mb-4">Project Management</h3>
                 <p className="text-gray-400 leading-relaxed">
-                  Real-time collaborative editing, shared workspaces, and integrated communication tools. Work together
-                  seamlessly from anywhere.
+                  Create, organize, and manage your projects with AI assistance. Choose tech stacks, templates, and get intelligent suggestions.
                 </p>
               </div>
 
@@ -321,10 +438,9 @@ export default function LandingPage() {
                     <GitBranchIcon />
                   </div>
                 </div>
-                <h3 className="text-xl font-bold text-white mb-4">Git Integration</h3>
+                <h3 className="text-xl font-bold text-white mb-4">Code Editor</h3>
                 <p className="text-gray-400 leading-relaxed">
-                  Native Git support with visual diff, merge conflict resolution, and automated workflows. Connect to
-                  GitHub, GitLab, and more.
+                  Built-in Monaco editor with AI-powered code completion, suggestions, and real-time assistance. Write better code faster.
                 </p>
               </div>
 
@@ -334,10 +450,9 @@ export default function LandingPage() {
                     <ShieldIcon />
                   </div>
                 </div>
-                <h3 className="text-xl font-bold text-white mb-4">Enterprise Security</h3>
+                <h3 className="text-xl font-bold text-white mb-4">Privacy First</h3>
                 <p className="text-gray-400 leading-relaxed">
-                  SOC 2 compliant with end-to-end encryption, SSO integration, and granular access controls. Your code
-                  stays secure.
+                  Your API keys stay secure. We don't store your data, we just route your requests. Complete privacy and control.
                 </p>
               </div>
 
@@ -347,10 +462,9 @@ export default function LandingPage() {
                     <GlobeIcon />
                   </div>
                 </div>
-                <h3 className="text-xl font-bold text-white mb-4">Global Infrastructure</h3>
+                <h3 className="text-xl font-bold text-white mb-4">100% Free</h3>
                 <p className="text-gray-400 leading-relaxed">
-                  Built on a global edge network with 99.9% uptime SLA. Low latency development experience from anywhere
-                  in the world.
+                  No subscriptions, no hidden fees, no credit card required. Use your own API keys and build unlimited projects for free.
                 </p>
               </div>
             </div>
@@ -361,27 +475,51 @@ export default function LandingPage() {
         <div className="px-6 py-16">
           <div className="max-w-6xl mx-auto">
             <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-700 rounded-2xl p-12 text-center">
-              <h3 className="text-2xl font-bold text-white mb-4">Join thousands of developers building the future</h3>
+              <h3 className="text-2xl font-bold text-white mb-4">Why developers choose Lumnicode</h3>
               <p className="text-gray-400 mb-8">
-                From startups to Fortune 500 companies, developers trust Lumnicode to ship faster.
+                Build faster with AI while keeping control of your costs and data.
               </p>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
                 <div>
-                  <div className="text-2xl font-bold text-white">5x</div>
-                  <div className="text-sm text-gray-400">Faster Development</div>
+                  <div className="text-2xl font-bold text-white">0$</div>
+                  <div className="text-sm text-gray-400">Platform Cost</div>
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-white">90%</div>
-                  <div className="text-sm text-gray-400">Less Debugging</div>
+                  <div className="text-2xl font-bold text-white">8+</div>
+                  <div className="text-sm text-gray-400">AI Providers</div>
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-white">50%</div>
-                  <div className="text-sm text-gray-400">Reduced Costs</div>
+                  <div className="text-2xl font-bold text-white">100%</div>
+                  <div className="text-sm text-gray-400">Your Control</div>
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-white">24/7</div>
-                  <div className="text-sm text-gray-400">AI Assistant</div>
+                  <div className="text-2xl font-bold text-white">∞</div>
+                  <div className="text-sm text-gray-400">Projects</div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
+                <div className="bg-gray-800/50 rounded-xl p-6">
+                  <div className="text-green-400 text-sm font-medium mb-2">"Perfect for startups"</div>
+                  <p className="text-gray-300 text-sm">
+                    "As a startup founder, I love that I can use my own API keys and not worry about platform costs. 
+                    The AI assistance helps me prototype faster."
+                  </p>
+                </div>
+                <div className="bg-gray-800/50 rounded-xl p-6">
+                  <div className="text-blue-400 text-sm font-medium mb-2">"Great for learning"</div>
+                  <p className="text-gray-300 text-sm">
+                    "The multi-provider support lets me experiment with different AI models. 
+                    I can compare OpenAI vs Gemini responses side by side."
+                  </p>
+                </div>
+                <div className="bg-gray-800/50 rounded-xl p-6">
+                  <div className="text-purple-400 text-sm font-medium mb-2">"Privacy focused"</div>
+                  <p className="text-gray-300 text-sm">
+                    "Finally, a platform that doesn't lock me in. My API keys stay mine, 
+                    and I can switch providers anytime without losing my projects."
+                  </p>
                 </div>
               </div>
             </div>
@@ -392,18 +530,22 @@ export default function LandingPage() {
         <div className="px-6 py-24">
           <div className="max-w-4xl mx-auto text-center">
             <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
-              Ready to transform your development workflow?
+              Ready to build with AI for free?
             </h2>
-            <p className="text-xl text-gray-400 mb-8">Start building with AI today. No credit card required.</p>
+            <p className="text-xl text-gray-400 mb-8">Start building today. No credit card, no subscriptions, no limits.</p>
 
             <SignUpButton mode="modal">
-              <button className="group bg-white text-black px-12 py-5 rounded-xl text-xl font-semibold hover:bg-gray-100 transition-all duration-300 transform hover:scale-105 flex items-center space-x-2 mx-auto">
+              <button className="group bg-gradient-to-r from-green-500 to-emerald-500 text-white px-12 py-5 rounded-xl text-xl font-semibold hover:from-green-600 hover:to-emerald-600 transition-all duration-300 transform hover:scale-105 flex items-center space-x-2 mx-auto shadow-lg hover:shadow-green-500/25">
                 <span>Get Started Free</span>
                 <div className="w-6 h-6 group-hover:translate-x-1 transition-transform">
                   <ArrowRightIcon />
                 </div>
               </button>
             </SignUpButton>
+            
+            <p className="text-sm text-gray-500 mt-4">
+              ✓ No credit card required ✓ Use your own API keys ✓ Build unlimited projects
+            </p>
           </div>
         </div>
 
@@ -439,5 +581,6 @@ export default function LandingPage() {
         </footer>
       </div>
     </div>
+    </>
   )
 }

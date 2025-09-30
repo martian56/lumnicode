@@ -38,6 +38,10 @@ class ProjectBase(BaseModel):
     name: str
     description: Optional[str] = None
     is_public: bool = False
+    tech_stack: Optional[List[str]] = None
+    project_type: str = "web"
+    template: Optional[str] = None
+    status: str = "active"
 
 
 class ProjectCreate(ProjectBase):
@@ -48,6 +52,10 @@ class ProjectUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     is_public: Optional[bool] = None
+    tech_stack: Optional[List[str]] = None
+    project_type: Optional[str] = None
+    template: Optional[str] = None
+    status: Optional[str] = None
 
 
 class Project(ProjectBase):
