@@ -8,7 +8,7 @@ from sqlalchemy import (
     Column, Integer, String, Text, DateTime,
     ForeignKey, Boolean, Enum, UniqueConstraint
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from src.db.database import Base
@@ -21,9 +21,12 @@ from src.db.database import Base
 class ProviderEnum(str, enum.Enum):
     OPENAI = "openai"
     GOOGLE = "google"
+    ANTHROPIC = "anthropic"
     HUGGINGFACE = "huggingface"
     TOGETHER = "together"
     FIREWORKS = "fireworks"
+    COHERE = "cohere"
+    GROQ = "groq"
     OTHER = "other"
 
 
@@ -66,15 +69,23 @@ class UserAPIKey(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     provider = Column(Enum(ProviderEnum), nullable=False)
     api_key = Column(Text, nullable=False)  # store encrypted in production
+    display_name = Column(String(255))  # User-friendly name for the key
     is_active = Column(Boolean, default=True)
+    is_validated = Column(Boolean, default=False)  # Whether we've verified the key works
+    last_validated_at = Column(DateTime(timezone=True))
     last_used_at = Column(DateTime(timezone=True))
+    usage_count = Column(Integer, default=0)  # Track how many requests made
+    monthly_limit = Column(Integer)  # Optional monthly usage limit
+    current_month_usage = Column(Integer, default=0)  # Current month's usage
+    rate_limit_per_minute = Column(Integer, default=60)  # Rate limit for this key
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
     user = relationship("User", back_populates="api_keys")
 
     __table_args__ = (
-        UniqueConstraint("user_id", "provider", name="uq_user_provider"),
+        UniqueConstraint("user_id", "provider", "display_name", name="uq_user_provider_name"),
     )
 
 
@@ -90,6 +101,13 @@ class Project(Base):
     description = Column(Text)
     owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     is_public = Column(Boolean, default=False)
+    
+    # New fields for frontend compatibility
+    tech_stack = Column(JSON)  # Store selected technologies as JSON array
+    project_type = Column(String(50), default="web")  # web, mobile, desktop, api
+    template = Column(String(100))  # Template used for project creation
+    status = Column(String(20), default="active")  # active, archived, draft
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     last_opened_at = Column(DateTime(timezone=True))
