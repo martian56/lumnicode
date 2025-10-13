@@ -1,0 +1,72 @@
+name: Backend - Compile & Smoke Test
+
+on:
+  pull_request:
+    branches: [ develop ]
+
+jobs:
+  backend-check:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+      CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12.5
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12.5'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      - name: Run static/compile check (compileall)
+        run: |
+          python -m compileall -q backend/src || (echo "Compile errors" && exit 1)
+
+      - name: Start backend (uvicorn)
+        run: |
+          # Start uvicorn in the background and write its PID so we can stop it later
+          cd backend
+          python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload &
+          echo $! > /tmp/uvicorn.pid
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+          CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+      - name: Wait for backend to be ready
+        run: |
+          # wait up to 30s for the server to respond
+          for i in {1..30}; do
+            if curl -sSf http://127.0.0.1:8000/ >/dev/null; then
+              echo "backend is up"
+              break
+            fi
+            echo "waiting for backend... ($i)"
+            sleep 1
+          done
+
+      - name: Smoke test - root endpoint
+        run: |
+          set -e
+          resp=$(curl -sSf http://127.0.0.1:8000/)
+          echo "response: $resp"
+          echo "$resp" | grep -q "Welcome to Lumnicode API" || (echo "Unexpected response" && exit 1)
+        shell: bash
+
+      - name: Stop backend
+        if: always()
+        run: |
+          if [ -f /tmp/uvicorn.pid ]; then
+            kill $(cat /tmp/uvicorn.pid) || true
+            rm -f /tmp/uvicorn.pid
+          fi
