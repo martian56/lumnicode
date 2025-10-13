@@ -65,6 +65,10 @@ interface AdvancedEditorProps {
   language?: string;
   onBack?: () => void;
   onCodeChange?: (code: string) => void;
+  // Optional props passed from routing state
+  aiPrompt?: any;
+  techStack?: any;
+  autoStartAI?: any;
 }
 
 export const AdvancedEditor: React.FC<AdvancedEditorProps> = ({

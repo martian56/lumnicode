@@ -1,0 +1,109 @@
+name: Frontend - Build & Lint
+
+on:
+  pull_request:
+    branches: [ develop ]
+
+jobs:
+  frontend-check:
+    runs-on: ubuntu-latest
+    env:
+      VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.3.0'
+          cache: 'npm'
+          cache-dependency-path: 'frontend/package-lock.json'
+
+      - name: Install dependencies
+        run: npm --prefix frontend ci --legacy-peer-deps
+
+      - name: Build (TS compile + Vite build)
+        run: npm --prefix frontend run build
+
+      # Uncomment this if you want linting enabled
+      # - name: Lint
+      #   run: npm --prefix frontend run lint
+
+      - name: Setup Python for upload step
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12.5'
+
+      - name: Install upload dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Upload `dist` to hosting service
+        env:
+          UFAZIEN_HOSTING_BASE_URL: ${{ secrets.UFAZIEN_HOSTING_BASE_URL }}
+          UFAZIEN_HOSTING_EMAIL: ${{ secrets.UFAZIEN_HOSTING_EMAIL }}
+          UFAZIEN_HOSTING_PASSWORD: ${{ secrets.UFAZIEN_HOSTING_PASSWORD }}
+          UFAZIEN_HOSTING_WEBSITE_ID: ${{ secrets.UFAZIEN_HOSTING_WEBSITE_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd frontend
+
+          if [ ! -d dist ]; then
+            echo "❌ dist folder not found - nothing to upload"
+            exit 1
+          fi
+
+          echo "✅ dist folder found, starting upload..."
+
+          python3 <<'PYTHON_SCRIPT'
+          import os, requests, glob
+
+          BASE = os.environ.get('UFAZIEN_HOSTING_BASE_URL')
+          EMAIL = os.environ.get('UFAZIEN_HOSTING_EMAIL')
+          PASSWORD = os.environ.get('UFAZIEN_HOSTING_PASSWORD')
+          WEBSITE_ID = os.environ.get('UFAZIEN_HOSTING_WEBSITE_ID')
+
+          if not all([BASE, EMAIL, PASSWORD, WEBSITE_ID]):
+              raise SystemExit('Missing one or more required environment variables.')
+
+          login_url = f"{BASE}/auth/login/"
+          print('🔐 Logging in to hosting API...')
+          resp = requests.post(login_url, json={'email': EMAIL, 'password': PASSWORD}, timeout=30)
+          if resp.status_code not in (200, 201):
+              print('❌ Login failed:', resp.status_code, resp.text)
+              raise SystemExit('Login failed')
+
+          tokens = resp.json()
+          access = tokens.get('access') or tokens.get('token')
+          if not access:
+              print('❌ No access token found in login response:', tokens)
+              raise SystemExit('No access token')
+
+          headers = {'Authorization': f'Bearer {access}'}
+          dist_root = 'dist'
+          files_to_upload = []
+
+          for path in glob.glob(os.path.join(dist_root, '**'), recursive=True):
+              if os.path.isfile(path):
+                  rel = os.path.relpath(path, dist_root)
+                  files_to_upload.append(('files', (rel, open(path, 'rb'))))
+
+          if not files_to_upload:
+              print('⚠️ No files found in dist to upload.')
+              raise SystemExit('No files')
+
+          upload_url = f"{BASE}/hosting/websites/{WEBSITE_ID}/upload_files/"
+          print(f'📤 Uploading {len(files_to_upload)} files to {upload_url}...')
+
+          resp = requests.post(upload_url, files=files_to_upload, headers=headers, data={'website_id': WEBSITE_ID}, timeout=120)
+          print('🧾 Upload response:', resp.status_code)
+          print(resp.text[:1000])
+
+          if resp.status_code not in (200, 201):
+              raise SystemExit('❌ Upload failed')
+
+          print('✅ Upload succeeded')
+          PYTHON_SCRIPT
