@@ -44,12 +44,11 @@ jobs:
           pip install requests
 
       - name: Upload `dist` to hosting service
-        if: ${{ secrets.UFAZIEN_HOSTING_BASE_URL && secrets.UFAZIEN_HOSTING_EMAIL && secrets.UFAZIEN_HOSTING_PASSWORD && secrets.UFAZIEN_HOSTING_WEBSITE_ID }}
         env:
-          HOST_BASE_URL: ${{ secrets.UFAZIEN_HOSTING_BASE_URL }}
-          HOST_EMAIL: ${{ secrets.UFAZIEN_HOSTING_EMAIL }}
-          HOST_PASSWORD: ${{ secrets.UFAZIEN_HOSTING_PASSWORD }}
-          HOST_WEBSITE_ID: ${{ secrets.UFAZIEN_HOSTING_WEBSITE_ID }}
+          HOST_BASE_URL: ${{ env.UFAZIEN_HOSTING_BASE_URL }}
+          HOST_EMAIL: ${{ env.UFAZIEN_HOSTING_EMAIL }}
+          HOST_PASSWORD: ${{ env.UFAZIEN_HOSTING_PASSWORD }}
+          HOST_WEBSITE_ID: ${{ env.UFAZIEN_HOSTING_WEBSITE_ID }}
         run: |
           set -e
           cd frontend
