@@ -12,21 +12,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Use Node.js 18
+      - name: Use Node.js 24
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '24.3.0'
           cache: 'npm'
+          cache-dependency-path: 'frontend/package-lock.json'
 
       - name: Install dependencies
         run: |
-          cd frontend
-          npm ci
+          npm --prefix frontend ci
 
       - name: Build (TS compile + Vite build)
         run: |
-          cd frontend
-          npm run build
+          npm --prefix frontend run build
 
       # - name: Lint
       #   run: |
@@ -45,10 +44,10 @@ jobs:
 
       - name: Upload `dist` to hosting service
         env:
-          HOST_BASE_URL: ${{ env.UFAZIEN_HOSTING_BASE_URL }}
-          HOST_EMAIL: ${{ env.UFAZIEN_HOSTING_EMAIL }}
-          HOST_PASSWORD: ${{ env.UFAZIEN_HOSTING_PASSWORD }}
-          HOST_WEBSITE_ID: ${{ env.UFAZIEN_HOSTING_WEBSITE_ID }}
+          UFAZIEN_HOSTING_BASE_URL: ${{ vars.UFAZIEN_HOSTING_BASE_URL }}
+          UFAZIEN_HOSTING_EMAIL: ${{ vars.UFAZIEN_HOSTING_EMAIL }}
+          UFAZIEN_HOSTING_PASSWORD: ${{ vars.UFAZIEN_HOSTING_PASSWORD }}
+          UFAZIEN_HOSTING_WEBSITE_ID: ${{ vars.UFAZIEN_HOSTING_WEBSITE_ID }}
         run: |
           set -e
           cd frontend

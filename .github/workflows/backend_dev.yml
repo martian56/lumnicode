@@ -8,19 +8,19 @@ jobs:
   backend-check:
     runs-on: ubuntu-latest
     env:
-      DATABASE_URL: ${{ env.DATABASE_URL }}
-      CLERK_SECRET_KEY: ${{ env.CLERK_SECRET_KEY }}
-      CLERK_PUBLISHABLE_KEY: ${{ env.CLERK_PUBLISHABLE_KEY }}
-      OPENAI_API_KEY: ${{ env.OPENAI_API_KEY }}
+      DATABASE_URL: ${{ vars.DATABASE_URL }}
+      CLERK_SECRET_KEY: ${{ vars.CLERK_SECRET_KEY }}
+      CLERK_PUBLISHABLE_KEY: ${{ vars.CLERK_PUBLISHABLE_KEY }}
+      OPENAI_API_KEY: ${{ vars.OPENAI_API_KEY }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
+      - name: Set up Python 3.12.5
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: '3.12.5'
 
       - name: Install dependencies
         run: |
@@ -38,10 +38,10 @@ jobs:
           python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload &
           echo $! > /tmp/uvicorn.pid
         env:
-          DATABASE_URL: ${{ env.DATABASE_URL }}
-          CLERK_SECRET_KEY: ${{ env.CLERK_SECRET_KEY }}
-          CLERK_PUBLISHABLE_KEY: ${{ env.CLERK_PUBLISHABLE_KEY }}
-          OPENAI_API_KEY: ${{ env.OPENAI_API_KEY }}
+          DATABASE_URL: ${{ vars.DATABASE_URL }}
+          CLERK_SECRET_KEY: ${{ vars.CLERK_SECRET_KEY }}
+          CLERK_PUBLISHABLE_KEY: ${{ vars.CLERK_PUBLISHABLE_KEY }}
+          OPENAI_API_KEY: ${{ vars.OPENAI_API_KEY }}
 
       - name: Wait for backend to be ready
         run: |
