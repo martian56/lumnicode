@@ -21,7 +21,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          npm --prefix frontend i
+          npm --prefix frontend ci --legacy-peer-deps
 
       - name: Build (TS compile + Vite build)
         run: |
