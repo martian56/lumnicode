@@ -19,6 +19,7 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+projects_storage/
 
 # Virtual Environment
 venv/
@@ -52,3 +53,5 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
+
+.idea/
