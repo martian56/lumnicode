@@ -41,21 +41,29 @@ class ProjectBase(BaseModel):
 
 
 class ProjectCreate(ProjectBase):
-    pass
+    tech_stack: Optional[List[str]] = None
+    project_type: Optional[str] = "web"
+    template: Optional[str] = None
+    status: Optional[str] = "active"
 
 
 class ProjectUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     is_public: Optional[bool] = None
+    tech_stack: Optional[List[str]] = None
+    status: Optional[str] = None
 
 
 class Project(ProjectBase):
     id: UUID
     owner_id: int
+    tech_stack: Optional[List[str]] = None
+    status: Optional[str] = "active"
+    project_type: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
-    
+
     class Config:
         from_attributes = True
 
@@ -68,7 +76,7 @@ class ProjectWithFiles(Project):
 class FileBase(BaseModel):
     name: str
     path: str
-    content: str = ""
+    content: Optional[str] = None
     language: str = "text"
 
 
@@ -86,9 +94,11 @@ class FileUpdate(BaseModel):
 class File(FileBase):
     id: UUID
     project_id: UUID
+    s3_key: Optional[str] = None
+    size_bytes: int = 0
     created_at: datetime
     updated_at: Optional[datetime] = None
-    
+
     class Config:
         from_attributes = True
 
