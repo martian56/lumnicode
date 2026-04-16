@@ -2,7 +2,7 @@ name: Frontend - Build & Lint
 
 on:
   pull_request:
-    branches: [ develop ]
+    branches: [ main ]
 
 jobs:
   frontend-check:
