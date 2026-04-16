@@ -1,31 +1,26 @@
 import { useState } from 'react'
 import { UserButton } from '@clerk/clerk-react'
 import { Helmet } from 'react-helmet-async'
-import { 
-  Settings, 
-  User, 
-  Bell, 
-  Shield, 
-  Palette, 
-  Globe, 
-  Database, 
-  Download, 
-  Upload, 
-  Trash2, 
-  Save, 
-  Moon, 
-  Sun, 
+import {
+  Settings,
+  User,
+  Bell,
+  Shield,
+  Palette,
+  Globe,
+  Database,
+  Download,
+  Upload,
+  Trash2,
+  Save,
+  Moon,
+  Sun,
   Monitor,
-  ChevronDown
+  ChevronDown,
 } from 'lucide-react'
 
 interface UserSettings {
-  profile: {
-    name: string
-    email: string
-    bio: string
-    avatar: string
-  }
+  profile: { name: string; email: string; bio: string; avatar: string }
   preferences: {
     theme: 'light' | 'dark' | 'system'
     language: string
@@ -59,61 +54,78 @@ interface UserSettings {
   }
 }
 
+const SETTINGS_KEY = 'lumnicode_settings'
+
+const defaultSettings: UserSettings = {
+  profile: { name: '', email: '', bio: '', avatar: '' },
+  preferences: {
+    theme: 'dark',
+    language: 'en',
+    timezone: 'UTC',
+    editor: { fontSize: 14, tabSize: 2, wordWrap: true, autoSave: true },
+  },
+  notifications: {
+    email: true,
+    push: true,
+    projectUpdates: true,
+    aiSuggestions: true,
+    weeklyDigest: false,
+  },
+  privacy: {
+    profileVisibility: 'public',
+    showEmail: false,
+    showProjects: true,
+    analytics: true,
+  },
+  integrations: {
+    github: false,
+    gitlab: false,
+    bitbucket: false,
+    slack: false,
+    discord: false,
+  },
+}
+
+function loadSettings(): UserSettings {
+  try {
+    const stored = localStorage.getItem(SETTINGS_KEY)
+    if (stored) return { ...defaultSettings, ...JSON.parse(stored) }
+  } catch { /* ignore parse errors */ }
+  return defaultSettings
+}
+
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<'profile' | 'preferences' | 'notifications' | 'privacy' | 'integrations' | 'billing' | 'advanced'>('profile')
-  const [settings, setSettings] = useState<UserSettings>({
-    profile: {
-      name: 'John Doe',
-      email: 'john@example.com',
-      bio: 'Full-stack developer passionate about AI and modern web technologies.',
-      avatar: ''
-    },
-    preferences: {
-      theme: 'dark',
-      language: 'en',
-      timezone: 'UTC',
-      editor: {
-        fontSize: 14,
-        tabSize: 2,
-        wordWrap: true,
-        autoSave: true
-      }
-    },
-    notifications: {
-      email: true,
-      push: true,
-      projectUpdates: true,
-      aiSuggestions: true,
-      weeklyDigest: false
-    },
-    privacy: {
-      profileVisibility: 'public',
-      showEmail: false,
-      showProjects: true,
-      analytics: true
-    },
-    integrations: {
-      github: false,
-      gitlab: false,
-      bitbucket: false,
-      slack: false,
-      discord: false
-    }
-  })
+  const [activeTab, setActiveTab] = useState<
+    | 'profile'
+    | 'preferences'
+    | 'notifications'
+    | 'privacy'
+    | 'integrations'
+    | 'billing'
+    | 'advanced'
+  >('profile')
+  const [settings, setSettings] = useState<UserSettings>(loadSettings)
   const [isSaving, setIsSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
   const handleSave = async () => {
     setIsSaving(true)
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    } catch (e) {
+      console.error('Failed to save settings:', e)
+    } finally {
       setIsSaving(false)
-      // Show success message
-    }, 1000)
+    }
   }
 
   const handleExport = () => {
-    const dataStr = JSON.stringify(settings, null, 2)
-    const dataBlob = new Blob([dataStr], { type: 'application/json' })
-    const url = URL.createObjectURL(dataBlob)
+    const blob = new Blob([JSON.stringify(settings, null, 2)], {
+      type: 'application/json',
+    })
+    const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
     link.download = 'lumnicode-settings.json'
@@ -125,10 +137,9 @@ export default function SettingsPage() {
     const file = event.target.files?.[0]
     if (file) {
       const reader = new FileReader()
-      reader.onload = (e) => {
+      reader.onload = e => {
         try {
-          const importedSettings = JSON.parse(e.target?.result as string)
-          setSettings(importedSettings)
+          setSettings(JSON.parse(e.target?.result as string))
         } catch (error) {
           console.error('Failed to import settings:', error)
         }
@@ -144,559 +155,659 @@ export default function SettingsPage() {
     { id: 'privacy', label: 'Privacy', icon: Shield },
     { id: 'integrations', label: 'Integrations', icon: Globe },
     { id: 'billing', label: 'Billing', icon: Database },
-    { id: 'advanced', label: 'Advanced', icon: Settings }
+    { id: 'advanced', label: 'Advanced', icon: Settings },
   ]
+
+  const Toggle = ({
+    checked,
+    onChange,
+  }: {
+    checked: boolean
+    onChange: () => void
+  }) => (
+    <button
+      onClick={onChange}
+      className={`w-10 h-5 rounded-full transition-colors flex-shrink-0 ${checked ? 'bg-indigo-600' : 'bg-zinc-700'}`}
+    >
+      <div
+        className={`w-4 h-4 bg-white rounded-full transition-transform mx-0.5 ${checked ? 'translate-x-5' : 'translate-x-0'}`}
+      />
+    </button>
+  )
+
+  const inputClass =
+    'w-full px-3 py-2.5 bg-zinc-950 border border-zinc-800 rounded-lg text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-colors'
 
   return (
     <>
       <Helmet>
         <title>Settings - Lumnicode</title>
-        <meta name="description" content="Manage your account settings, preferences, and integrations for your AI-powered development environment." />
+        <meta name="description" content="Manage your account settings." />
       </Helmet>
-          {/* Header */}
-          <header className="bg-gray-900/80 backdrop-blur-xl border-b border-gray-700/50 sticky top-0 z-40">
-            <div className="px-4 sm:px-6 lg:px-8">
-              <div className="flex justify-between items-center h-16">
-                {/* Page Title */}
-                <div className="flex items-center space-x-4">
-                  <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-                    Settings
-                  </h1>
-                </div>
 
-                {/* Actions */}
-                <div className="flex items-center space-x-4">
-                  <button
-                    onClick={handleSave}
-                    disabled={isSaving}
-                    className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-purple-500/25 flex items-center space-x-2"
-                  >
-                    <Save className="h-4 w-4" />
-                    <span>{isSaving ? 'Saving...' : 'Save Changes'}</span>
-                  </button>
-                  <UserButton
-                    afterSignOutUrl="/"
-                    appearance={{
-                      elements: {
-                        avatarBox: "h-10 w-10"
+      <header className="h-14 flex items-center justify-between px-6 border-b border-zinc-800 flex-shrink-0">
+        <h1 className="text-lg font-semibold text-zinc-100">Settings</h1>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+          >
+            <Save className="h-3.5 w-3.5" />
+            <span>{isSaving ? 'Saving...' : saved ? 'Saved' : 'Save'}</span>
+          </button>
+          <UserButton
+            afterSignOutUrl="/"
+            appearance={{ elements: { avatarBox: 'h-8 w-8' } }}
+          />
+        </div>
+      </header>
+
+      <main className="flex-1 overflow-y-auto p-6">
+        <div className="flex flex-col lg:flex-row gap-6">
+          {/* Tabs */}
+          <nav className="lg:w-48 flex-shrink-0 space-y-0.5">
+            {tabs.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as typeof activeTab)}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors text-left ${
+                  activeTab === tab.id
+                    ? 'bg-zinc-800 text-zinc-100'
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60'
+                }`}
+              >
+                <tab.icon className="h-4 w-4" />
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </nav>
+
+          {/* Content */}
+          <div className="flex-1 max-w-2xl">
+            {activeTab === 'profile' && (
+              <div className="space-y-6">
+                <h2 className="text-base font-semibold text-zinc-100">
+                  Profile
+                </h2>
+                <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5 space-y-5">
+                  <div className="flex items-center gap-4">
+                    <div className="w-16 h-16 bg-zinc-800 rounded-full flex items-center justify-center">
+                      <User className="h-7 w-7 text-zinc-500" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-zinc-200">
+                        Profile Picture
+                      </p>
+                      <button className="text-xs text-indigo-400 hover:text-indigo-300 mt-0.5 transition-colors">
+                        Upload new
+                      </button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-zinc-400 mb-1.5">
+                        Full Name
+                      </label>
+                      <input
+                        type="text"
+                        value={settings.profile.name}
+                        onChange={e =>
+                          setSettings({
+                            ...settings,
+                            profile: {
+                              ...settings.profile,
+                              name: e.target.value,
+                            },
+                          })
+                        }
+                        className={inputClass}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-zinc-400 mb-1.5">
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        value={settings.profile.email}
+                        onChange={e =>
+                          setSettings({
+                            ...settings,
+                            profile: {
+                              ...settings.profile,
+                              email: e.target.value,
+                            },
+                          })
+                        }
+                        className={inputClass}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-400 mb-1.5">
+                      Bio
+                    </label>
+                    <textarea
+                      value={settings.profile.bio}
+                      onChange={e =>
+                        setSettings({
+                          ...settings,
+                          profile: { ...settings.profile, bio: e.target.value },
+                        })
                       }
-                    }}
-                  />
+                      rows={3}
+                      className={`${inputClass} resize-none`}
+                      placeholder="Tell us about yourself..."
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          </header>
+            )}
 
-          {/* Main Content */}
-          <main className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
-            <div className="flex flex-col lg:flex-row gap-8">
-              {/* Settings Navigation */}
-              <div className="lg:w-64 flex-shrink-0">
-                <nav className="space-y-2">
-                  {tabs.map((tab) => (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id as any)}
-                      className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 text-left ${
-                        activeTab === tab.id
-                          ? 'bg-purple-600/20 text-purple-300 border border-purple-500/30'
-                          : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
-                      }`}
+            {activeTab === 'preferences' && (
+              <div className="space-y-6">
+                <h2 className="text-base font-semibold text-zinc-100">
+                  Preferences
+                </h2>
+                <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5 space-y-5">
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-400 mb-2">
+                      Theme
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(
+                        [
+                          ['light', Sun],
+                          ['dark', Moon],
+                          ['system', Monitor],
+                        ] as const
+                      ).map(([id, Icon]) => (
+                        <button
+                          key={id}
+                          onClick={() =>
+                            setSettings({
+                              ...settings,
+                              preferences: {
+                                ...settings.preferences,
+                                theme: id,
+                              },
+                            })
+                          }
+                          className={`flex items-center justify-center gap-2 p-3 rounded-lg border text-sm transition-colors ${
+                            settings.preferences.theme === id
+                              ? 'border-indigo-500 bg-indigo-500/10 text-zinc-200'
+                              : 'border-zinc-800 text-zinc-400 hover:bg-zinc-800'
+                          }`}
+                        >
+                          <Icon className="h-4 w-4" />
+                          <span className="capitalize">{id}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5 space-y-5">
+                  <h3 className="text-sm font-medium text-zinc-200">Editor</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-zinc-400 mb-1.5">
+                        Font Size
+                      </label>
+                      <input
+                        type="range"
+                        min="10"
+                        max="24"
+                        value={settings.preferences.editor.fontSize}
+                        onChange={e =>
+                          setSettings({
+                            ...settings,
+                            preferences: {
+                              ...settings.preferences,
+                              editor: {
+                                ...settings.preferences.editor,
+                                fontSize: parseInt(e.target.value),
+                              },
+                            },
+                          })
+                        }
+                        className="w-full accent-indigo-500"
+                      />
+                      <div className="flex justify-between text-[11px] text-zinc-600 mt-0.5">
+                        <span>10px</span>
+                        <span>{settings.preferences.editor.fontSize}px</span>
+                        <span>24px</span>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-zinc-400 mb-1.5">
+                        Tab Size
+                      </label>
+                      <div className="relative">
+                        <select
+                          value={settings.preferences.editor.tabSize}
+                          onChange={e =>
+                            setSettings({
+                              ...settings,
+                              preferences: {
+                                ...settings.preferences,
+                                editor: {
+                                  ...settings.preferences.editor,
+                                  tabSize: parseInt(e.target.value),
+                                },
+                              },
+                            })
+                          }
+                          className="appearance-none w-full px-3 py-2.5 bg-zinc-950 border border-zinc-800 rounded-lg text-sm text-zinc-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                        >
+                          <option value={2}>2 spaces</option>
+                          <option value={4}>4 spaces</option>
+                          <option value={8}>8 spaces</option>
+                        </select>
+                        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500 pointer-events-none" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-3 pt-1">
+                    {[
+                      {
+                        key: 'wordWrap',
+                        label: 'Word Wrap',
+                        desc: 'Wrap long lines',
+                      },
+                      {
+                        key: 'autoSave',
+                        label: 'Auto Save',
+                        desc: 'Automatically save changes',
+                      },
+                    ].map(opt => (
+                      <div
+                        key={opt.key}
+                        className="flex items-center justify-between"
+                      >
+                        <div>
+                          <p className="text-sm text-zinc-200">{opt.label}</p>
+                          <p className="text-xs text-zinc-500">{opt.desc}</p>
+                        </div>
+                        <Toggle
+                          checked={
+                            settings.preferences.editor[
+                              opt.key as keyof typeof settings.preferences.editor
+                            ] as boolean
+                          }
+                          onChange={() =>
+                            setSettings({
+                              ...settings,
+                              preferences: {
+                                ...settings.preferences,
+                                editor: {
+                                  ...settings.preferences.editor,
+                                  [opt.key]:
+                                    !settings.preferences.editor[
+                                      opt.key as keyof typeof settings.preferences.editor
+                                    ],
+                                },
+                              },
+                            })
+                          }
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'notifications' && (
+              <div className="space-y-6">
+                <h2 className="text-base font-semibold text-zinc-100">
+                  Notifications
+                </h2>
+                <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5 divide-y divide-zinc-800">
+                  {[
+                    {
+                      key: 'email',
+                      label: 'Email Notifications',
+                      desc: 'Receive notifications via email',
+                    },
+                    {
+                      key: 'push',
+                      label: 'Push Notifications',
+                      desc: 'Browser push notifications',
+                    },
+                    {
+                      key: 'projectUpdates',
+                      label: 'Project Updates',
+                      desc: 'Get notified about project changes',
+                    },
+                    {
+                      key: 'aiSuggestions',
+                      label: 'AI Suggestions',
+                      desc: 'Receive AI-powered suggestions',
+                    },
+                    {
+                      key: 'weeklyDigest',
+                      label: 'Weekly Digest',
+                      desc: 'Weekly summary of activity',
+                    },
+                  ].map(n => (
+                    <div
+                      key={n.key}
+                      className="flex items-center justify-between py-3 first:pt-0 last:pb-0"
                     >
-                      <tab.icon className="h-5 w-5 flex-shrink-0" />
-                      <span className="font-medium">{tab.label}</span>
-                    </button>
+                      <div>
+                        <p className="text-sm text-zinc-200">{n.label}</p>
+                        <p className="text-xs text-zinc-500">{n.desc}</p>
+                      </div>
+                      <Toggle
+                        checked={
+                          settings.notifications[
+                            n.key as keyof typeof settings.notifications
+                          ] as boolean
+                        }
+                        onChange={() =>
+                          setSettings({
+                            ...settings,
+                            notifications: {
+                              ...settings.notifications,
+                              [n.key]:
+                                !settings.notifications[
+                                  n.key as keyof typeof settings.notifications
+                                ],
+                            },
+                          })
+                        }
+                      />
+                    </div>
                   ))}
-                </nav>
+                </div>
               </div>
+            )}
 
-              {/* Settings Content */}
-              <div className="flex-1">
-                {activeTab === 'profile' && (
-                  <div className="space-y-8">
-                    <div>
-                      <h2 className="text-2xl font-bold text-white mb-6">Profile Settings</h2>
-                      
-                      <div className="bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-6">
-                        <div className="space-y-6">
-                          <div className="flex items-center space-x-6">
-                            <div className="relative">
-                              <div className="w-20 h-20 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
-                                <User className="h-10 w-10 text-white" />
-                              </div>
-                              <button className="absolute -bottom-1 -right-1 bg-purple-600 hover:bg-purple-700 rounded-full p-1 transition-colors">
-                                <Upload className="h-3 w-3 text-white" />
-                              </button>
-                            </div>
-                            <div>
-                              <h3 className="text-lg font-semibold text-white">Profile Picture</h3>
-                              <p className="text-gray-400 text-sm">Upload a new profile picture</p>
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                              <label className="block text-sm font-semibold text-gray-300 mb-2">
-                                Full Name
-                              </label>
-                              <input
-                                type="text"
-                                value={settings.profile.name}
-                                onChange={(e) => setSettings({
-                                  ...settings,
-                                  profile: { ...settings.profile, name: e.target.value }
-                                })}
-                                className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-white placeholder-gray-400 backdrop-blur-xl transition-all duration-200"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-sm font-semibold text-gray-300 mb-2">
-                                Email Address
-                              </label>
-                              <input
-                                type="email"
-                                value={settings.profile.email}
-                                onChange={(e) => setSettings({
-                                  ...settings,
-                                  profile: { ...settings.profile, email: e.target.value }
-                                })}
-                                className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-white placeholder-gray-400 backdrop-blur-xl transition-all duration-200"
-                              />
-                            </div>
-                          </div>
-
-                          <div>
-                            <label className="block text-sm font-semibold text-gray-300 mb-2">
-                              Bio
-                            </label>
-                            <textarea
-                              value={settings.profile.bio}
-                              onChange={(e) => setSettings({
-                                ...settings,
-                                profile: { ...settings.profile, bio: e.target.value }
-                              })}
-                              rows={4}
-                              className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-white placeholder-gray-400 backdrop-blur-xl transition-all duration-200 resize-none"
-                              placeholder="Tell us about yourself..."
-                            />
-                          </div>
-                        </div>
-                      </div>
+            {activeTab === 'privacy' && (
+              <div className="space-y-6">
+                <h2 className="text-base font-semibold text-zinc-100">
+                  Privacy & Security
+                </h2>
+                <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5 space-y-4">
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-400 mb-2">
+                      Profile Visibility
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { id: 'public', desc: 'Anyone can see your profile' },
+                        {
+                          id: 'private',
+                          desc: 'Only you can see your profile',
+                        },
+                      ].map(v => (
+                        <button
+                          key={v.id}
+                          onClick={() =>
+                            setSettings({
+                              ...settings,
+                              privacy: {
+                                ...settings.privacy,
+                                profileVisibility: v.id as 'public' | 'private',
+                              },
+                            })
+                          }
+                          className={`p-3 rounded-lg border text-left transition-colors ${
+                            settings.privacy.profileVisibility === v.id
+                              ? 'border-indigo-500 bg-indigo-500/10'
+                              : 'border-zinc-800 hover:bg-zinc-800'
+                          }`}
+                        >
+                          <p className="text-sm font-medium text-zinc-200 capitalize">
+                            {v.id}
+                          </p>
+                          <p className="text-xs text-zinc-500">{v.desc}</p>
+                        </button>
+                      ))}
                     </div>
                   </div>
-                )}
-
-                {activeTab === 'preferences' && (
-                  <div className="space-y-8">
-                    <div>
-                      <h2 className="text-2xl font-bold text-white mb-6">Preferences</h2>
-                      
-                      <div className="space-y-6">
-                        {/* Theme Settings */}
-                        <div className="bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-6">
-                          <h3 className="text-lg font-semibold text-white mb-4">Appearance</h3>
-                          <div className="space-y-4">
-                            <div>
-                              <label className="block text-sm font-semibold text-gray-300 mb-3">
-                                Theme
-                              </label>
-                              <div className="grid grid-cols-3 gap-3">
-                                {[
-                                  { id: 'light', label: 'Light', icon: Sun },
-                                  { id: 'dark', label: 'Dark', icon: Moon },
-                                  { id: 'system', label: 'System', icon: Monitor }
-                                ].map((theme) => (
-                                  <button
-                                    key={theme.id}
-                                    onClick={() => setSettings({
-                                      ...settings,
-                                      preferences: { ...settings.preferences, theme: theme.id as any }
-                                    })}
-                                    className={`p-4 rounded-xl border transition-all duration-200 ${
-                                      settings.preferences.theme === theme.id
-                                        ? 'border-purple-500 bg-purple-600/20'
-                                        : 'border-gray-700/50 bg-gray-700/30 hover:bg-gray-700/50'
-                                    }`}
-                                  >
-                                    <theme.icon className="h-6 w-6 mx-auto mb-2 text-gray-300" />
-                                    <span className="text-sm font-medium text-gray-300">{theme.label}</span>
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Editor Settings */}
-                        <div className="bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-6">
-                          <h3 className="text-lg font-semibold text-white mb-4">Editor Settings</h3>
-                          <div className="space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                              <div>
-                                <label className="block text-sm font-semibold text-gray-300 mb-2">
-                                  Font Size
-                                </label>
-                                <input
-                                  type="range"
-                                  min="10"
-                                  max="24"
-                                  value={settings.preferences.editor.fontSize}
-                                  onChange={(e) => setSettings({
-                                    ...settings,
-                                    preferences: {
-                                      ...settings.preferences,
-                                      editor: { ...settings.preferences.editor, fontSize: parseInt(e.target.value) }
-                                    }
-                                  })}
-                                  className="w-full"
-                                />
-                                <div className="flex justify-between text-xs text-gray-400 mt-1">
-                                  <span>10px</span>
-                                  <span>{settings.preferences.editor.fontSize}px</span>
-                                  <span>24px</span>
-                                </div>
-                              </div>
-                              <div>
-                                <label className="block text-sm font-semibold text-gray-300 mb-2">
-                                  Tab Size
-                                </label>
-                                <div className="relative">
-                                  <select
-                                    value={settings.preferences.editor.tabSize}
-                                    onChange={(e) => setSettings({
-                                      ...settings,
-                                      preferences: {
-                                        ...settings.preferences,
-                                        editor: { ...settings.preferences.editor, tabSize: parseInt(e.target.value) }
-                                      }
-                                    })}
-                                    className="appearance-none w-full px-4 py-3 bg-gray-900/50 backdrop-blur-sm border border-gray-700/50 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-white transition-all duration-200 hover:bg-gray-800/50 cursor-pointer"
-                                  >
-                                    <option value={2} className="bg-gray-900 text-white">2 spaces</option>
-                                    <option value={4} className="bg-gray-900 text-white">4 spaces</option>
-                                    <option value={8} className="bg-gray-900 text-white">8 spaces</option>
-                                  </select>
-                                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                                    <ChevronDown className="h-4 w-4 text-gray-400" />
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="space-y-3">
-                              {[
-                                { key: 'wordWrap', label: 'Word Wrap', description: 'Wrap long lines' },
-                                { key: 'autoSave', label: 'Auto Save', description: 'Automatically save changes' }
-                              ].map((option) => (
-                                <div key={option.key} className="flex items-center justify-between">
-                                  <div>
-                                    <div className="font-medium text-white">{option.label}</div>
-                                    <div className="text-sm text-gray-400">{option.description}</div>
-                                  </div>
-                                  <button
-                                    onClick={() => setSettings({
-                                      ...settings,
-                                      preferences: {
-                                        ...settings.preferences,
-                                        editor: { ...settings.preferences.editor, [option.key]: !settings.preferences.editor[option.key as keyof typeof settings.preferences.editor] }
-                                      }
-                                    })}
-                                    className={`w-12 h-6 rounded-full transition-colors ${
-                                      settings.preferences.editor[option.key as keyof typeof settings.preferences.editor]
-                                        ? 'bg-purple-600'
-                                        : 'bg-gray-600'
-                                    }`}
-                                  >
-                                    <div className={`w-5 h-5 bg-white rounded-full transition-transform ${
-                                      settings.preferences.editor[option.key as keyof typeof settings.preferences.editor]
-                                        ? 'translate-x-6'
-                                        : 'translate-x-0.5'
-                                    }`}></div>
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
+                </div>
+                <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5 divide-y divide-zinc-800">
+                  {[
+                    {
+                      key: 'showEmail',
+                      label: 'Show Email',
+                      desc: 'Display email on public profile',
+                    },
+                    {
+                      key: 'showProjects',
+                      label: 'Show Projects',
+                      desc: 'Display projects on public profile',
+                    },
+                    {
+                      key: 'analytics',
+                      label: 'Analytics',
+                      desc: 'Help improve Lumnicode with usage data',
+                    },
+                  ].map(opt => (
+                    <div
+                      key={opt.key}
+                      className="flex items-center justify-between py-3 first:pt-0 last:pb-0"
+                    >
+                      <div>
+                        <p className="text-sm text-zinc-200">{opt.label}</p>
+                        <p className="text-xs text-zinc-500">{opt.desc}</p>
                       </div>
+                      <Toggle
+                        checked={
+                          settings.privacy[
+                            opt.key as keyof typeof settings.privacy
+                          ] as boolean
+                        }
+                        onChange={() =>
+                          setSettings({
+                            ...settings,
+                            privacy: {
+                              ...settings.privacy,
+                              [opt.key]:
+                                !settings.privacy[
+                                  opt.key as keyof typeof settings.privacy
+                                ],
+                            },
+                          })
+                        }
+                      />
                     </div>
-                  </div>
-                )}
-
-                {activeTab === 'notifications' && (
-                  <div className="space-y-8">
-                    <div>
-                      <h2 className="text-2xl font-bold text-white mb-6">Notification Settings</h2>
-                      
-                      <div className="bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-6">
-                        <div className="space-y-4">
-                          {[
-                            { key: 'email', label: 'Email Notifications', description: 'Receive notifications via email' },
-                            { key: 'push', label: 'Push Notifications', description: 'Receive browser push notifications' },
-                            { key: 'projectUpdates', label: 'Project Updates', description: 'Get notified about project changes' },
-                            { key: 'aiSuggestions', label: 'AI Suggestions', description: 'Receive AI-powered suggestions' },
-                            { key: 'weeklyDigest', label: 'Weekly Digest', description: 'Weekly summary of your activity' }
-                          ].map((notification) => (
-                            <div key={notification.key} className="flex items-center justify-between py-3">
-                              <div>
-                                <div className="font-medium text-white">{notification.label}</div>
-                                <div className="text-sm text-gray-400">{notification.description}</div>
-                              </div>
-                              <button
-                                onClick={() => setSettings({
-                                  ...settings,
-                                  notifications: { ...settings.notifications, [notification.key]: !settings.notifications[notification.key as keyof typeof settings.notifications] }
-                                })}
-                                className={`w-12 h-6 rounded-full transition-colors ${
-                                  settings.notifications[notification.key as keyof typeof settings.notifications]
-                                    ? 'bg-purple-600'
-                                    : 'bg-gray-600'
-                                }`}
-                              >
-                                <div className={`w-5 h-5 bg-white rounded-full transition-transform ${
-                                  settings.notifications[notification.key as keyof typeof settings.notifications]
-                                    ? 'translate-x-6'
-                                    : 'translate-x-0.5'
-                                }`}></div>
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === 'privacy' && (
-                  <div className="space-y-8">
-                    <div>
-                      <h2 className="text-2xl font-bold text-white mb-6">Privacy & Security</h2>
-                      
-                      <div className="space-y-6">
-                        <div className="bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-6">
-                          <h3 className="text-lg font-semibold text-white mb-4">Profile Visibility</h3>
-                          <div className="space-y-4">
-                            <div>
-                              <label className="block text-sm font-semibold text-gray-300 mb-3">
-                                Profile Visibility
-                              </label>
-                              <div className="grid grid-cols-2 gap-3">
-                                {[
-                                  { id: 'public', label: 'Public', description: 'Anyone can see your profile' },
-                                  { id: 'private', label: 'Private', description: 'Only you can see your profile' }
-                                ].map((visibility) => (
-                                  <button
-                                    key={visibility.id}
-                                    onClick={() => setSettings({
-                                      ...settings,
-                                      privacy: { ...settings.privacy, profileVisibility: visibility.id as any }
-                                    })}
-                                    className={`p-4 rounded-xl border transition-all duration-200 text-left ${
-                                      settings.privacy.profileVisibility === visibility.id
-                                        ? 'border-purple-500 bg-purple-600/20'
-                                        : 'border-gray-700/50 bg-gray-700/30 hover:bg-gray-700/50'
-                                    }`}
-                                  >
-                                    <div className="font-medium text-white">{visibility.label}</div>
-                                    <div className="text-sm text-gray-400">{visibility.description}</div>
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-6">
-                          <h3 className="text-lg font-semibold text-white mb-4">Data & Analytics</h3>
-                          <div className="space-y-4">
-                            {[
-                              { key: 'showEmail', label: 'Show Email', description: 'Display email on public profile' },
-                              { key: 'showProjects', label: 'Show Projects', description: 'Display projects on public profile' },
-                              { key: 'analytics', label: 'Analytics', description: 'Help improve Lumnicode with usage data' }
-                            ].map((option) => (
-                              <div key={option.key} className="flex items-center justify-between py-3">
-                                <div>
-                                  <div className="font-medium text-white">{option.label}</div>
-                                  <div className="text-sm text-gray-400">{option.description}</div>
-                                </div>
-                                <button
-                                  onClick={() => setSettings({
-                                    ...settings,
-                                    privacy: { ...settings.privacy, [option.key]: !settings.privacy[option.key as keyof typeof settings.privacy] }
-                                  })}
-                                  className={`w-12 h-6 rounded-full transition-colors ${
-                                    settings.privacy[option.key as keyof typeof settings.privacy]
-                                      ? 'bg-purple-600'
-                                      : 'bg-gray-600'
-                                  }`}
-                                >
-                                  <div className={`w-5 h-5 bg-white rounded-full transition-transform ${
-                                    settings.privacy[option.key as keyof typeof settings.privacy]
-                                      ? 'translate-x-6'
-                                      : 'translate-x-0.5'
-                                  }`}></div>
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === 'integrations' && (
-                  <div className="space-y-8">
-                    <div>
-                      <h2 className="text-2xl font-bold text-white mb-6">Integrations</h2>
-                      
-                      <div className="bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-6">
-                        <div className="space-y-4">
-                          {[
-                            { key: 'github', label: 'GitHub', description: 'Connect your GitHub repositories', icon: '🐙' },
-                            { key: 'gitlab', label: 'GitLab', description: 'Connect your GitLab repositories', icon: '🦊' },
-                            { key: 'bitbucket', label: 'Bitbucket', description: 'Connect your Bitbucket repositories', icon: '🪣' },
-                            { key: 'slack', label: 'Slack', description: 'Get notifications in Slack', icon: '💬' },
-                            { key: 'discord', label: 'Discord', description: 'Get notifications in Discord', icon: '🎮' }
-                          ].map((integration) => (
-                            <div key={integration.key} className="flex items-center justify-between py-4 border-b border-gray-700/50 last:border-b-0">
-                              <div className="flex items-center space-x-4">
-                                <span className="text-2xl">{integration.icon}</span>
-                                <div>
-                                  <div className="font-medium text-white">{integration.label}</div>
-                                  <div className="text-sm text-gray-400">{integration.description}</div>
-                                </div>
-                              </div>
-                              <button
-                                onClick={() => setSettings({
-                                  ...settings,
-                                  integrations: { ...settings.integrations, [integration.key]: !settings.integrations[integration.key as keyof typeof settings.integrations] }
-                                })}
-                                className={`px-4 py-2 rounded-xl transition-all duration-200 ${
-                                  settings.integrations[integration.key as keyof typeof settings.integrations]
-                                    ? 'bg-purple-600 hover:bg-purple-700 text-white'
-                                    : 'bg-gray-700/50 hover:bg-gray-600/50 text-gray-300'
-                                }`}
-                              >
-                                {settings.integrations[integration.key as keyof typeof settings.integrations] ? 'Connected' : 'Connect'}
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === 'billing' && (
-                  <div className="space-y-8">
-                    <div>
-                      <h2 className="text-2xl font-bold text-white mb-6">Billing & Usage</h2>
-                      
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div className="bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-6">
-                          <h3 className="text-lg font-semibold text-white mb-4">Current Plan</h3>
-                          <div className="space-y-4">
-                            <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 border border-purple-500/30 rounded-xl p-4">
-                              <div className="flex items-center justify-between mb-2">
-                                <h4 className="font-semibold text-white">Free Plan</h4>
-                                <span className="text-sm text-gray-400">$0/month</span>
-                              </div>
-                              <p className="text-sm text-gray-400 mb-4">Perfect for getting started with AI-powered development</p>
-                              <button className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-2 rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-300">
-                                Upgrade Plan
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-6">
-                          <h3 className="text-lg font-semibold text-white mb-4">Usage This Month</h3>
-                          <div className="space-y-4">
-                            <div className="flex justify-between items-center">
-                              <span className="text-gray-300">Projects Created</span>
-                              <span className="text-white font-semibold">12 / Unlimited</span>
-                            </div>
-                            <div className="flex justify-between items-center">
-                              <span className="text-gray-300">AI Requests</span>
-                              <span className="text-white font-semibold">1,247 / 10,000</span>
-                            </div>
-                            <div className="flex justify-between items-center">
-                              <span className="text-gray-300">Storage Used</span>
-                              <span className="text-white font-semibold">2.3 GB / 10 GB</span>
-                            </div>
-                            <div className="w-full bg-gray-700 rounded-full h-2">
-                              <div className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full" style={{ width: '23%' }}></div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === 'advanced' && (
-                  <div className="space-y-8">
-                    <div>
-                      <h2 className="text-2xl font-bold text-white mb-6">Advanced Settings</h2>
-                      
-                      <div className="space-y-6">
-                        <div className="bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-6">
-                          <h3 className="text-lg font-semibold text-white mb-4">Data Management</h3>
-                          <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <div className="font-medium text-white">Export Settings</div>
-                                <div className="text-sm text-gray-400">Download your settings and data</div>
-                              </div>
-                              <button
-                                onClick={handleExport}
-                                className="px-4 py-2 bg-gray-700/50 hover:bg-gray-600/50 border border-gray-600/50 text-gray-300 hover:text-white rounded-xl transition-all duration-200 flex items-center space-x-2"
-                              >
-                                <Download className="h-4 w-4" />
-                                <span>Export</span>
-                              </button>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <div className="font-medium text-white">Import Settings</div>
-                                <div className="text-sm text-gray-400">Import settings from a file</div>
-                              </div>
-                              <label className="px-4 py-2 bg-gray-700/50 hover:bg-gray-600/50 border border-gray-600/50 text-gray-300 hover:text-white rounded-xl transition-all duration-200 flex items-center space-x-2 cursor-pointer">
-                                <Upload className="h-4 w-4" />
-                                <span>Import</span>
-                                <input
-                                  type="file"
-                                  accept=".json"
-                                  onChange={handleImport}
-                                  className="hidden"
-                                />
-                              </label>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="bg-gray-800/50 backdrop-blur-xl border border-red-500/30 rounded-2xl p-6">
-                          <h3 className="text-lg font-semibold text-red-400 mb-4">Danger Zone</h3>
-                          <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <div className="font-medium text-white">Delete Account</div>
-                                <div className="text-sm text-gray-400">Permanently delete your account and all data</div>
-                              </div>
-                              <button className="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 text-red-300 hover:text-red-200 rounded-xl transition-all duration-200 flex items-center space-x-2">
-                                <Trash2 className="h-4 w-4" />
-                                <span>Delete Account</span>
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                  ))}
+                </div>
               </div>
-            </div>
-          </main>
+            )}
+
+            {activeTab === 'integrations' && (
+              <div className="space-y-6">
+                <h2 className="text-base font-semibold text-zinc-100">
+                  Integrations
+                </h2>
+                <div className="bg-zinc-900 border border-zinc-800 rounded-lg divide-y divide-zinc-800">
+                  {[
+                    {
+                      key: 'github',
+                      label: 'GitHub',
+                      desc: 'Connect your GitHub repositories',
+                    },
+                    {
+                      key: 'gitlab',
+                      label: 'GitLab',
+                      desc: 'Connect your GitLab repositories',
+                    },
+                    {
+                      key: 'bitbucket',
+                      label: 'Bitbucket',
+                      desc: 'Connect your Bitbucket repositories',
+                    },
+                    {
+                      key: 'slack',
+                      label: 'Slack',
+                      desc: 'Get notifications in Slack',
+                    },
+                    {
+                      key: 'discord',
+                      label: 'Discord',
+                      desc: 'Get notifications in Discord',
+                    },
+                  ].map(int => (
+                    <div
+                      key={int.key}
+                      className="flex items-center justify-between px-5 py-4"
+                    >
+                      <div>
+                        <p className="text-sm font-medium text-zinc-200">
+                          {int.label}
+                        </p>
+                        <p className="text-xs text-zinc-500">{int.desc}</p>
+                      </div>
+                      <button
+                        onClick={() =>
+                          setSettings({
+                            ...settings,
+                            integrations: {
+                              ...settings.integrations,
+                              [int.key]:
+                                !settings.integrations[
+                                  int.key as keyof typeof settings.integrations
+                                ],
+                            },
+                          })
+                        }
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                          settings.integrations[
+                            int.key as keyof typeof settings.integrations
+                          ]
+                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                            : 'bg-zinc-800 text-zinc-400 border border-zinc-700 hover:bg-zinc-700'
+                        }`}
+                      >
+                        {settings.integrations[
+                          int.key as keyof typeof settings.integrations
+                        ]
+                          ? 'Connected'
+                          : 'Connect'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'billing' && (
+              <div className="space-y-6">
+                <h2 className="text-base font-semibold text-zinc-100">
+                  Billing & Usage
+                </h2>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5">
+                    <h3 className="text-sm font-medium text-zinc-200 mb-3">
+                      Current Plan
+                    </h3>
+                    <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-medium text-zinc-200">
+                          Free Plan
+                        </span>
+                        <span className="text-xs text-zinc-500">$0/month</span>
+                      </div>
+                      <p className="text-xs text-zinc-500 mb-3">
+                        Perfect for getting started
+                      </p>
+                      <button className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition-colors">
+                        Upgrade
+                      </button>
+                    </div>
+                  </div>
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5">
+                    <h3 className="text-sm font-medium text-zinc-200 mb-3">
+                      Usage
+                    </h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-zinc-400">Projects</span>
+                        <span className="text-zinc-200">Unlimited</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-zinc-400">Storage</span>
+                        <span className="text-zinc-200">2.3 / 10 GB</span>
+                      </div>
+                      <div className="w-full bg-zinc-800 rounded-full h-1.5">
+                        <div
+                          className="bg-indigo-500 h-1.5 rounded-full"
+                          style={{ width: '23%' }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'advanced' && (
+              <div className="space-y-6">
+                <h2 className="text-base font-semibold text-zinc-100">
+                  Advanced
+                </h2>
+                <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-zinc-200">Export Settings</p>
+                      <p className="text-xs text-zinc-500">
+                        Download your settings
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleExport}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 border border-zinc-700 rounded-lg text-xs text-zinc-300 hover:bg-zinc-700 transition-colors"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      <span>Export</span>
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-zinc-200">Import Settings</p>
+                      <p className="text-xs text-zinc-500">
+                        Import from a file
+                      </p>
+                    </div>
+                    <label className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 border border-zinc-700 rounded-lg text-xs text-zinc-300 hover:bg-zinc-700 transition-colors cursor-pointer">
+                      <Upload className="h-3.5 w-3.5" />
+                      <span>Import</span>
+                      <input
+                        type="file"
+                        accept=".json"
+                        onChange={handleImport}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                </div>
+                <div className="bg-zinc-900 border border-red-500/20 rounded-lg p-5">
+                  <h3 className="text-sm font-medium text-red-400 mb-3">
+                    Danger Zone
+                  </h3>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-zinc-200">Delete Account</p>
+                      <p className="text-xs text-zinc-500">
+                        Permanently delete your account
+                      </p>
+                    </div>
+                    <button className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-400 hover:bg-red-500/20 transition-colors">
+                      <Trash2 className="h-3.5 w-3.5" />
+                      <span>Delete</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </main>
     </>
   )
 }
