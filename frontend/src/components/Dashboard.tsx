@@ -2,13 +2,13 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { UserButton, useAuth } from '@clerk/clerk-react'
 import { Helmet } from 'react-helmet-async'
-import { 
-  Plus, 
-  FolderOpen, 
-  Sparkles, 
+import {
+  Plus,
+  FolderOpen,
+  Sparkles,
   Activity,
-  TrendingUp,
-  Key
+  Key,
+  ArrowRight,
 } from 'lucide-react'
 import { apiClient } from '../lib/api'
 
@@ -23,39 +23,29 @@ interface Project {
 }
 
 export default function Dashboard() {
-  const [stats, setStats] = useState({
-    totalProjects: 0,
-    recentActivity: 0,
-    aiAssistance: 0,
-    productivity: 0
-  })
+  const [stats, setStats] = useState({ totalProjects: 0, recentActivity: 0 })
   const [recentProjects, setRecentProjects] = useState<Project[]>([])
   const navigate = useNavigate()
   const { getToken } = useAuth()
 
   useEffect(() => {
     loadStats()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const loadStats = async () => {
     try {
       const token = await getToken()
       const response = await apiClient.get('/projects', {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       })
       const projects = response.data
-      
-      // Sort projects by most recent activity (updated_at or created_at)
-      const sortedProjects = projects.sort((a: Project, b: Project) => {
+      const sorted = projects.sort((a: Project, b: Project) => {
         const aTime = new Date(a.updated_at || a.created_at).getTime()
         const bTime = new Date(b.updated_at || b.created_at).getTime()
         return bTime - aTime
       })
-      
-      // Get the 4 most recent projects
-      const recent = sortedProjects.slice(0, 4)
-      setRecentProjects(recent)
-      
+      setRecentProjects(sorted.slice(0, 5))
       setStats({
         totalProjects: projects.length,
         recentActivity: projects.filter((p: Project) => {
@@ -63,8 +53,6 @@ export default function Dashboard() {
           weekAgo.setDate(weekAgo.getDate() - 7)
           return new Date(p.created_at) > weekAgo
         }).length,
-        aiAssistance: Math.floor(Math.random() * 50) + 20, // Mock data
-        productivity: Math.floor(Math.random() * 30) + 70 // Mock data
       })
     } catch (error) {
       console.error('Failed to load stats:', error)
@@ -75,291 +63,200 @@ export default function Dashboard() {
     const now = new Date()
     const date = new Date(dateString)
     const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
-    
-    // Less than 10 seconds
-    if (diffInSeconds < 10) return 'Just now'
-    
-    // Less than 1 minute
-    if (diffInSeconds < 60) return `${diffInSeconds}s ago`
-    
-    // Less than 1 hour
+    if (diffInSeconds < 60) return 'Just now'
     const diffInMinutes = Math.floor(diffInSeconds / 60)
     if (diffInMinutes < 60) return `${diffInMinutes}m ago`
-    
-    // Less than 1 day
-    const diffInHours = Math.floor(diffInSeconds / (60 * 60))
+    const diffInHours = Math.floor(diffInSeconds / 3600)
     if (diffInHours < 24) return `${diffInHours}h ago`
-    
-    // Less than 1 week
-    const diffInDays = Math.floor(diffInSeconds / (60 * 60 * 24))
+    const diffInDays = Math.floor(diffInSeconds / 86400)
     if (diffInDays < 7) return `${diffInDays}d ago`
-    
-    // More than a week - show formatted date
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   }
-
-  const getActivityIcon = (project: Project) => {
-    // Determine activity type based on when it was last updated vs created
-    const updatedAt = project.updated_at ? new Date(project.updated_at) : null
-    const createdAt = new Date(project.created_at)
-    
-    if (!updatedAt || updatedAt.getTime() === createdAt.getTime()) {
-      return Plus // Newly created
-    } else {
-      return Activity // Recently updated
-    }
-  }
-
-  const getActivityText = (project: Project) => {
-    const updatedAt = project.updated_at ? new Date(project.updated_at) : null
-    const createdAt = new Date(project.created_at)
-    
-    if (!updatedAt || updatedAt.getTime() === createdAt.getTime()) {
-      return 'Created project'
-    } else {
-      return 'Updated project'
-    }
-  }
-
 
   return (
     <>
       <Helmet>
         <title>Dashboard - Lumnicode</title>
-        <meta name="description" content="Your AI-powered development dashboard. Manage projects, track activity, and start building with AI assistance." />
+        <meta
+          name="description"
+          content="Your AI-powered development dashboard."
+        />
       </Helmet>
-      {/* Header */}
-      <header className="bg-gray-900/80 backdrop-blur-xl border-b border-gray-700/50 sticky top-0 z-40">
-        <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            {/* Page Title */}
-            <div className="flex items-center space-x-4">
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-                Dashboard
-              </h1>
-            </div>
 
-            {/* User Controls */}
-            <div className="flex items-center">
-              <UserButton
-                afterSignOutUrl="/"
-                appearance={{
-                  elements: {
-                    avatarBox: "h-10 w-10"
-                  }
-                }}
-              />
-            </div>
-          </div>
-        </div>
+      {/* Header */}
+      <header className="h-14 flex items-center justify-between px-6 border-b border-zinc-800 flex-shrink-0">
+        <h1 className="text-lg font-semibold text-zinc-100">Dashboard</h1>
+        <UserButton
+          afterSignOutUrl="/"
+          appearance={{ elements: { avatarBox: 'h-8 w-8' } }}
+        />
       </header>
 
       {/* Main Content */}
-      <main className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
-          {/* Welcome Section */}
-          <div className="mb-8">
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent mb-2">
-              Welcome back! 👋
-            </h2>
-            <p className="text-gray-400 text-base lg:text-lg">
-              Ready to build something amazing with AI assistance?
-            </p>
+      <main className="flex-1 overflow-y-auto p-6 space-y-6">
+        {/* Stats Row */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-indigo-600/10 flex items-center justify-center">
+                <FolderOpen className="h-4 w-4 text-indigo-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-semibold text-zinc-100">
+                  {stats.totalProjects}
+                </p>
+                <p className="text-xs text-zinc-500">Total Projects</p>
+              </div>
+            </div>
           </div>
-
-          {/* AI Assistant Quick Access */}
-          <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 border border-purple-500/30 rounded-2xl p-6 mb-8">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-emerald-600/10 flex items-center justify-center">
+                <Activity className="h-4 w-4 text-emerald-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-semibold text-zinc-100">
+                  {stats.recentActivity}
+                </p>
+                <p className="text-xs text-zinc-500">This Week</p>
+              </div>
+            </div>
+          </div>
+          <div className="col-span-2 bg-zinc-900 border border-zinc-800 rounded-lg p-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl p-3">
-                  <Sparkles className="h-6 w-6 text-white" />
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-violet-600/10 flex items-center justify-center">
+                  <Sparkles className="h-4 w-4 text-violet-400" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-white">AI Assistant Ready</h3>
-                  <p className="text-gray-300 text-sm">Start a conversation to build your next project</p>
+                  <p className="text-sm font-medium text-zinc-100">
+                    Create with AI
+                  </p>
+                  <p className="text-xs text-zinc-500">
+                    Describe a project and let AI build it
+                  </p>
                 </div>
               </div>
               <button
                 onClick={() => navigate('/create-project')}
-                className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all duration-300 shadow-lg hover:shadow-purple-500/25 flex items-center space-x-2"
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition-colors"
               >
-                <Sparkles className="h-4 w-4" />
-                <span>Start Chat</span>
+                Start
               </button>
             </div>
           </div>
+        </div>
 
-          {/* Quick Stats */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-8">
-            <div className="bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-4 lg:p-6">
-              <div className="flex items-center space-x-3">
-                <div className="bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl p-2 lg:p-3">
-                  <FolderOpen className="h-4 w-4 lg:h-6 lg:w-6 text-white" />
+        {/* Quick Actions */}
+        <div>
+          <h2 className="text-sm font-medium text-zinc-400 mb-3">
+            Get Started
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {[
+              {
+                icon: Plus,
+                title: 'New Project',
+                desc: 'Create with AI assistance',
+                path: '/create-project',
+              },
+              {
+                icon: FolderOpen,
+                title: 'Browse Projects',
+                desc: 'View all your projects',
+                path: '/projects',
+              },
+              {
+                icon: Key,
+                title: 'API Keys',
+                desc: 'Configure AI providers',
+                path: '/api-keys',
+              },
+            ].map(action => (
+              <button
+                key={action.title}
+                onClick={() => navigate(action.path)}
+                className="flex items-center gap-3 p-4 bg-zinc-900 border border-zinc-800 rounded-lg hover:bg-zinc-800/80 transition-colors text-left group"
+              >
+                <div className="w-9 h-9 rounded-lg bg-zinc-800 flex items-center justify-center flex-shrink-0">
+                  <action.icon className="h-4 w-4 text-zinc-400" />
                 </div>
-                <div>
-                  <p className="text-lg lg:text-2xl font-bold text-white">{stats.totalProjects}</p>
-                  <p className="text-xs lg:text-sm text-gray-400">Total Projects</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-zinc-200">
+                    {action.title}
+                  </p>
+                  <p className="text-xs text-zinc-500">{action.desc}</p>
                 </div>
-              </div>
-            </div>
-            
-            <div className="bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-4 lg:p-6">
-              <div className="flex items-center space-x-3">
-                <div className="bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl p-2 lg:p-3">
-                  <Activity className="h-4 w-4 lg:h-6 lg:w-6 text-white" />
-                </div>
-                <div>
-                  <p className="text-lg lg:text-2xl font-bold text-white">{stats.recentActivity}</p>
-                  <p className="text-xs lg:text-sm text-gray-400">This Week</p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-4 lg:p-6">
-              <div className="flex items-center space-x-3">
-                <div className="bg-gradient-to-r from-purple-500 to-violet-500 rounded-xl p-2 lg:p-3">
-                  <Sparkles className="h-4 w-4 lg:h-6 lg:w-6 text-white" />
-                </div>
-                <div>
-                  <p className="text-lg lg:text-2xl font-bold text-white">{stats.aiAssistance}</p>
-                  <p className="text-xs lg:text-sm text-gray-400">AI Suggestions</p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-4 lg:p-6">
-              <div className="flex items-center space-x-3">
-                <div className="bg-gradient-to-r from-orange-500 to-red-500 rounded-xl p-2 lg:p-3">
-                  <TrendingUp className="h-4 w-4 lg:h-6 lg:w-6 text-white" />
-                </div>
-                <div>
-                  <p className="text-lg lg:text-2xl font-bold text-white">{stats.productivity}%</p>
-                  <p className="text-xs lg:text-sm text-gray-400">Productivity</p>
-                </div>
-              </div>
-            </div>
+                <ArrowRight className="h-4 w-4 text-zinc-600 group-hover:text-zinc-400 transition-colors flex-shrink-0" />
+              </button>
+            ))}
           </div>
+        </div>
 
-          {/* Getting Started Section */}
-          <div className="mb-8">
-            <h3 className="text-xl font-semibold text-white mb-6">Get Started</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <button
-                onClick={() => navigate('/create-project')}
-                className="bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-6 hover:bg-gray-700/50 transition-all duration-200 text-left group"
-              >
-                <div className="flex items-center space-x-4 mb-4">
-                  <div className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl p-3">
-                    <Plus className="h-6 w-6 text-white" />
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-white group-hover:text-purple-300 transition-colors">
-                      Create New Project
-                    </h4>
-                    <p className="text-sm text-gray-400">Start building with AI</p>
-                  </div>
-                </div>
-                <p className="text-gray-300 text-sm">
-                  Use our AI Assistant to create your next project with the perfect tech stack.
-                </p>
-              </button>
-
-              <button
-                onClick={() => navigate('/projects')}
-                className="bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-6 hover:bg-gray-700/50 transition-all duration-200 text-left group"
-              >
-                <div className="flex items-center space-x-4 mb-4">
-                  <div className="bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl p-3">
-                    <FolderOpen className="h-6 w-6 text-white" />
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-white group-hover:text-purple-300 transition-colors">
-                      Browse Projects
-                    </h4>
-                    <p className="text-sm text-gray-400">View all your projects</p>
-                  </div>
-                </div>
-                <p className="text-gray-300 text-sm">
-                  Manage, organize, and collaborate on your development projects.
-                </p>
-              </button>
-
-              <button
-                onClick={() => navigate('/api-keys')}
-                className="bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-6 hover:bg-gray-700/50 transition-all duration-200 text-left group"
-              >
-                <div className="flex items-center space-x-4 mb-4">
-                  <div className="bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl p-3">
-                    <Key className="h-6 w-6 text-white" />
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-white group-hover:text-purple-300 transition-colors">
-                      Manage API Keys
-                    </h4>
-                    <p className="text-sm text-gray-400">Configure AI services</p>
-                  </div>
-                </div>
-                <p className="text-gray-300 text-sm">
-                  Add and manage your AI service API keys for enhanced functionality.
-                </p>
-              </button>
-            </div>
+        {/* Recent Activity */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-medium text-zinc-400">
+              Recent Activity
+            </h2>
+            <button
+              onClick={() => navigate('/projects')}
+              className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+            >
+              View all
+            </button>
           </div>
-
-          {/* Recent Activity */}
-          <div className="mt-12">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-semibold text-white">Recent Activity</h3>
-              <button 
-                onClick={() => navigate('/projects')}
-                className="text-purple-400 hover:text-purple-300 text-sm font-medium transition-colors"
-              >
-                View All Projects
-              </button>
-            </div>
-            <div className="bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-6">
-              <div className="space-y-4">
-                {recentProjects.length > 0 ? (
-                  recentProjects.map((project) => {
-                    const ActivityIcon = getActivityIcon(project)
-                    const activityText = getActivityText(project)
-                    const timeString = formatRelativeTime(project.updated_at || project.created_at)
-                    
-                    return (
-                      <div 
-                        key={project.id} 
-                        className="flex items-center space-x-4 p-3 hover:bg-gray-700/30 rounded-lg transition-colors cursor-pointer"
-                        onClick={() => navigate(`/project/${project.id}`)}
-                      >
-                        <div className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg p-2">
-                          <ActivityIcon className="h-4 w-4 text-white" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-white font-medium">{activityText}</p>
-                          <p className="text-gray-400 text-sm">{project.name}</p>
-                        </div>
-                        <span className="text-gray-500 text-sm">{timeString}</span>
-                      </div>
-                    )
-                  })
-                ) : (
-                  <div className="text-center py-8">
-                    <div className="bg-gradient-to-br from-gray-800/50 to-gray-700/50 rounded-2xl p-6 w-fit mx-auto mb-4 backdrop-blur-xl border border-gray-700/50">
-                      <FolderOpen className="mx-auto h-12 w-12 text-gray-500" />
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg divide-y divide-zinc-800">
+            {recentProjects.length > 0 ? (
+              recentProjects.map(project => {
+                const isNew =
+                  !project.updated_at ||
+                  new Date(project.updated_at).getTime() ===
+                    new Date(project.created_at).getTime()
+                return (
+                  <div
+                    key={project.id}
+                    className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-800/50 transition-colors cursor-pointer"
+                    onClick={() => navigate(`/project/${project.id}`)}
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center flex-shrink-0">
+                      {isNew ? (
+                        <Plus className="h-3.5 w-3.5 text-zinc-500" />
+                      ) : (
+                        <Activity className="h-3.5 w-3.5 text-zinc-500" />
+                      )}
                     </div>
-                    <h4 className="text-lg font-semibold text-white mb-2">No projects yet</h4>
-                    <p className="text-gray-400 text-sm mb-4">Create your first project to see recent activity here.</p>
-                    <button
-                      onClick={() => navigate('/create-project')}
-                      className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-300 text-sm font-medium"
-                    >
-                      Create Project
-                    </button>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-zinc-200">
+                        {isNew ? 'Created' : 'Updated'}{' '}
+                        <span className="font-medium">{project.name}</span>
+                      </p>
+                    </div>
+                    <span className="text-xs text-zinc-600 flex-shrink-0">
+                      {formatRelativeTime(
+                        project.updated_at || project.created_at
+                      )}
+                    </span>
                   </div>
-                )}
+                )
+              })
+            ) : (
+              <div className="px-4 py-10 text-center">
+                <FolderOpen className="h-8 w-8 text-zinc-700 mx-auto mb-3" />
+                <p className="text-sm text-zinc-500 mb-1">No projects yet</p>
+                <p className="text-xs text-zinc-600 mb-4">
+                  Create your first project to get started.
+                </p>
+                <button
+                  onClick={() => navigate('/create-project')}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  Create Project
+                </button>
               </div>
-            </div>
+            )}
           </div>
-
+        </div>
       </main>
     </>
   )
