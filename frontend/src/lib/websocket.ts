@@ -1,7 +1,13 @@
 import { apiClient } from './api'
 
 export interface AIProgressUpdate {
-  type: 'progress' | 'file_created' | 'file_updated' | 'error' | 'completed' | 'stopped'
+  type:
+    | 'progress'
+    | 'file_created'
+    | 'file_updated'
+    | 'error'
+    | 'completed'
+    | 'stopped'
   message: string
   progress: number // 0-100
   currentFile?: string
@@ -27,7 +33,8 @@ class WebSocketService {
   private reconnectAttempts = 0
   private maxReconnectAttempts = 5
   private reconnectDelay = 1000
-  private listeners: Map<string, ((data: AIProgressUpdate) => void)[]> = new Map()
+  private listeners: Map<string, ((data: AIProgressUpdate) => void)[]> =
+    new Map()
   private sessionId: string | null = null
 
   connect(projectId: string, sessionId?: string): Promise<void> {
@@ -35,9 +42,11 @@ class WebSocketService {
       try {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
         // Use backend server URL instead of frontend dev server
-        const backendHost = import.meta.env.VITE_API_BASE_URL?.replace(/^https?:\/\//, '') || 'localhost:8000'
+        const backendHost =
+          import.meta.env.VITE_API_BASE_URL?.replace(/^https?:\/\//, '') ||
+          'localhost:8000'
         const wsUrl = `${protocol}//${backendHost}/ws/ai-progress/${projectId}${sessionId ? `?session=${sessionId}` : ''}`
-        
+
         this.ws = new WebSocket(wsUrl)
         this.sessionId = sessionId || null
 
@@ -47,7 +56,7 @@ class WebSocketService {
           resolve()
         }
 
-        this.ws.onmessage = (event) => {
+        this.ws.onmessage = event => {
           try {
             const data: AIProgressUpdate = JSON.parse(event.data)
             this.notifyListeners(data)
@@ -56,21 +65,26 @@ class WebSocketService {
           }
         }
 
-        this.ws.onclose = (event) => {
+        this.ws.onclose = event => {
           console.log('WebSocket closed:', event.code, event.reason)
           this.ws = null
-          
+
           // Attempt to reconnect if not intentionally closed
-          if (event.code !== 1000 && this.reconnectAttempts < this.maxReconnectAttempts) {
+          if (
+            event.code !== 1000 &&
+            this.reconnectAttempts < this.maxReconnectAttempts
+          ) {
             this.reconnectAttempts++
             setTimeout(() => {
-              console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})`)
+              console.log(
+                `Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})`
+              )
               this.connect(projectId, sessionId).catch(console.error)
             }, this.reconnectDelay * this.reconnectAttempts)
           }
         }
 
-        this.ws.onerror = (error) => {
+        this.ws.onerror = error => {
           console.error('WebSocket error:', error)
           reject(error)
         }
@@ -107,14 +121,20 @@ class WebSocketService {
     this.sendMessage('resume_ai', {})
   }
 
-  addListener(eventType: string, callback: (data: AIProgressUpdate) => void): void {
+  addListener(
+    eventType: string,
+    callback: (data: AIProgressUpdate) => void
+  ): void {
     if (!this.listeners.has(eventType)) {
       this.listeners.set(eventType, [])
     }
     this.listeners.get(eventType)!.push(callback)
   }
 
-  removeListener(eventType: string, callback: (data: AIProgressUpdate) => void): void {
+  removeListener(
+    eventType: string,
+    callback: (data: AIProgressUpdate) => void
+  ): void {
     const listeners = this.listeners.get(eventType)
     if (listeners) {
       const index = listeners.indexOf(callback)
@@ -152,45 +172,72 @@ export const websocketService = new WebSocketService()
 
 // API functions for AI generation management
 export const aiGenerationAPI = {
-  async startGeneration(projectId: string, prompt: string, techStack: string[], token: string): Promise<AIGenerationSession> {
-    const response = await apiClient.post(`/ai/generate/${projectId}`, {
-      prompt,
-      tech_stack: techStack
-    }, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
+  async startGeneration(
+    projectId: string,
+    prompt: string,
+    techStack: string[],
+    token: string
+  ): Promise<AIGenerationSession> {
+    const response = await apiClient.post(
+      `/ai/generate/${projectId}`,
+      {
+        prompt,
+        tech_stack: techStack,
+      },
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    )
     return response.data
   },
 
-  async getSession(sessionId: string, token: string): Promise<AIGenerationSession> {
+  async getSession(
+    sessionId: string,
+    token: string
+  ): Promise<AIGenerationSession> {
     const response = await apiClient.get(`/ai/session/${sessionId}`, {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: { Authorization: `Bearer ${token}` },
     })
     return response.data
   },
 
   async stopGeneration(sessionId: string, token: string): Promise<void> {
-    await apiClient.post(`/ai/session/${sessionId}/stop`, {}, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    await apiClient.post(
+      `/ai/session/${sessionId}/stop`,
+      {},
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    )
   },
 
   async pauseGeneration(sessionId: string, token: string): Promise<void> {
-    await apiClient.post(`/ai/session/${sessionId}/pause`, {}, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    await apiClient.post(
+      `/ai/session/${sessionId}/pause`,
+      {},
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    )
   },
 
   async resumeGeneration(sessionId: string, token: string): Promise<void> {
-    await apiClient.post(`/ai/session/${sessionId}/resume`, {}, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    await apiClient.post(
+      `/ai/session/${sessionId}/resume`,
+      {},
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    )
   },
 
-  async getGenerationHistory(projectId: string, token: string): Promise<AIGenerationSession[]> {
+  async getGenerationHistory(
+    projectId: string,
+    token: string
+  ): Promise<AIGenerationSession[]> {
     const response = await apiClient.get(`/ai/history/${projectId}`, {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: { Authorization: `Bearer ${token}` },
     })
     return response.data
-  }
+  },
 }

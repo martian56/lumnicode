@@ -17,10 +17,10 @@ createRoot(document.getElementById('root')!).render(
     <ClerkProvider
       publishableKey={PUBLISHABLE_KEY}
       appearance={{
-        baseTheme: dark
+        baseTheme: dark,
       }}
     >
       <App />
     </ClerkProvider>
-  </StrictMode>,
+  </StrictMode>
 )
