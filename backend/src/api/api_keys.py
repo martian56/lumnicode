@@ -295,16 +295,3 @@ async def delete_key(
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
-@router.get("/providers")
-async def get_supported_providers():
-    """Get list of supported AI providers."""
-    return {
-        "providers": [
-            {
-                "id": provider.value,
-                "name": provider.value.title(),
-                "description": f"{provider.value.title()} AI API"
-            }
-            for provider in ProviderEnum
-        ]
-    }
