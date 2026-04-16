@@ -1,87 +1,84 @@
 """
-AI assistance endpoint.
+AI assistance endpoint using unified LLM provider.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
-from src.services.ai_service import get_ai_service
-from src.services.auth import get_current_user
-from src.schemas import AssistRequest, AssistResponse
 import logging
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from langchain_core.messages import HumanMessage, SystemMessage
+
+from src.db.database import get_db
+from src.services.auth import get_current_user
+from src.services.database import get_user_by_clerk_id, create_user
+from src.schemas.schemas import AssistRequest, AssistResponse, UserCreate
+from src.services.llm_provider import get_user_chat_model
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 
+async def get_current_db_user(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    db_user = get_user_by_clerk_id(db, current_user["clerk_id"])
+    if not db_user:
+        user_create = UserCreate(
+            clerk_id=current_user["clerk_id"],
+            email=current_user["email"],
+            first_name=current_user.get("first_name"),
+            last_name=current_user.get("last_name")
+        )
+        db_user = create_user(db, user_create)
+    return db_user
+
+
 @router.post("/", response_model=AssistResponse)
 async def ai_assist(
     request: AssistRequest,
-    current_user: dict = Depends(get_current_user)
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_db_user)
 ):
-    """AI assistance endpoint."""
-    logger.info(f"AI assist request from user {current_user['clerk_id']}")
-    logger.info(f"File content length: {len(request.file_content)}")
-    logger.info(f"Cursor position: {request.cursor_position}")
-    logger.info(f"Prompt: {request.prompt}")
-
+    """AI assistance endpoint using user's configured API keys."""
     try:
-        ai_service = await get_ai_service()
-
-        # Determine the type of assistance based on the prompt
-        # Use provided language if available, otherwise default to javascript
-        lang = request.language or 'javascript'
-        if request.prompt:
-            if "complete" in request.prompt.lower() or "finish" in request.prompt.lower():
-                # Code completion
-                suggestion = await ai_service.complete_code(
-                    prefix=request.file_content,
-                    language=lang
-                )
-            elif "refactor" in request.prompt.lower() or "improve" in request.prompt.lower():
-                # Code refactoring
-                suggestion = await ai_service.refactor_code(
-                    code=request.file_content,
-                    language=lang
-                )
-            elif "explain" in request.prompt.lower() or "what" in request.prompt.lower():
-                # Code explanation
-                explanation = await ai_service.explain_code(
-                    code=request.file_content,
-                    language=lang
-                )
-                suggestion = await ai_service.generate_code_suggestion(
-                    code_context=request.file_content,
-                    user_prompt=f"Explain this code: {request.prompt}",
-                    language=lang
-                )
-            else:
-                # General code suggestion
-                suggestion = await ai_service.generate_code_suggestion(
-                    code_context=request.file_content,
-                    user_prompt=request.prompt,
-                    language=lang
-                )
-        else:
-            # Default to code analysis
-            suggestions = await ai_service.analyze_code(
-                code=request.file_content,
-                language=lang,
-                cursor_position=request.cursor_position
+        chat_model = get_user_chat_model(current_user.id, db)
+        if not chat_model:
+            return AssistResponse(
+                suggestion="No AI provider configured. Add an API key in API Keys settings.",
+                confidence=0.0
             )
-            if suggestions:
-                suggestion = suggestions[0]  # Return the first suggestion
-            else:
-                suggestion = await ai_service.generate_code_suggestion(
-                    code_context=request.file_content,
-                    language=lang
-                )
+
+        lang = request.language or "javascript"
+        system_prompt = (
+            f"You are an expert coding assistant specializing in {lang}. "
+            "Provide concise, accurate code suggestions. "
+            "When asked to complete, refactor, or explain code, respond with the code or explanation directly. "
+            "Do not wrap code in markdown code blocks unless specifically asked."
+        )
+
+        user_content = ""
+        if request.file_content:
+            user_content = f"Code context:\n```{lang}\n{request.file_content}\n```\n\n"
+        if request.prompt:
+            user_content += request.prompt
+        else:
+            user_content += "Analyze this code and suggest improvements."
+
+        messages = [
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=user_content),
+        ]
+
+        response = await chat_model.ainvoke(messages)
+        suggestion_text = response.content if hasattr(response, "content") else str(response)
 
         return AssistResponse(
-            suggestion=suggestion.code,
-            confidence=suggestion.confidence
+            suggestion=suggestion_text,
+            confidence=0.85
         )
 
     except Exception as e:
-        logger.error(f"AI service error: {e}")
+        logger.error("AI assist error: %s", e)
         return AssistResponse(
             suggestion="// AI assistance temporarily unavailable. Please try again later.",
             confidence=0.0
