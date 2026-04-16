@@ -25,8 +25,15 @@ class Settings(BaseSettings):
 
     # CORS origins - Allow Docker network and localhost
     cors_origins: str = "*"  # For development, allow all origins
-    # Projects storage root (on-disk workspace for created projects/files)
+    # Projects storage root (legacy on-disk workspace, being replaced by S3)
     projects_root: str = os.getenv("PROJECTS_ROOT", "./projects_storage")
+
+    # S3 / MinIO object storage
+    s3_endpoint_url: str = os.getenv("S3_ENDPOINT_URL", "http://localhost:9000")
+    s3_access_key: str = os.getenv("S3_ACCESS_KEY", "lumnicode")
+    s3_secret_key: str = os.getenv("S3_SECRET_KEY", "lumnicode123")
+    s3_bucket_name: str = os.getenv("S3_BUCKET_NAME", "lumnicode-files")
+    s3_region: str = os.getenv("S3_REGION", "us-east-1")
     
     @property
     def cors_origins_list(self) -> list[str]:

@@ -1,4 +1,13 @@
-import { Play, Pause, Square, Loader2, CheckCircle, AlertCircle, FileText, Code } from 'lucide-react'
+import {
+  Play,
+  Pause,
+  Square,
+  Loader2,
+  CheckCircle,
+  AlertCircle,
+  FileText,
+  Code,
+} from 'lucide-react'
 import type { AIProgressUpdate } from '../lib/websocket'
 
 interface AIProgressProps {
@@ -22,13 +31,14 @@ export default function AIProgress({
   onStop,
   onPause,
   onResume,
-  recentUpdates = []
+  recentUpdates = [],
 }: AIProgressProps) {
   const getStatusIcon = () => {
-    if (error) return <AlertCircle className="h-5 w-5 text-red-400" />
-    if (isPaused) return <Pause className="h-5 w-5 text-yellow-400" />
-    if (isGenerating) return <Loader2 className="h-5 w-5 text-blue-400 animate-spin" />
-    return <CheckCircle className="h-5 w-5 text-green-400" />
+    if (error) return <AlertCircle className="h-4 w-4 text-red-400" />
+    if (isPaused) return <Pause className="h-4 w-4 text-amber-400" />
+    if (isGenerating)
+      return <Loader2 className="h-4 w-4 text-indigo-400 animate-spin" />
+    return <CheckCircle className="h-4 w-4 text-emerald-400" />
   }
 
   const getStatusText = () => {
@@ -40,52 +50,49 @@ export default function AIProgress({
 
   const getStatusColor = () => {
     if (error) return 'text-red-400'
-    if (isPaused) return 'text-yellow-400'
-    if (isGenerating) return 'text-blue-400'
-    return 'text-green-400'
+    if (isPaused) return 'text-amber-400'
+    if (isGenerating) return 'text-indigo-400'
+    return 'text-emerald-400'
   }
 
   return (
-    <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-700 rounded-xl p-6">
+    <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center gap-2.5">
           {getStatusIcon()}
           <div>
-            <h3 className="text-lg font-semibold text-white">AI Generation</h3>
-            <p className={`text-sm ${getStatusColor()}`}>{getStatusText()}</p>
+            <h3 className="text-sm font-medium text-zinc-200">AI Generation</h3>
+            <p className={`text-xs ${getStatusColor()}`}>{getStatusText()}</p>
           </div>
         </div>
-        
-        {/* Action Buttons */}
-        <div className="flex items-center space-x-2">
+
+        <div className="flex items-center gap-1.5">
           {isGenerating && !isPaused && (
             <button
               onClick={onPause}
-              className="flex items-center space-x-2 px-3 py-2 bg-yellow-500/20 text-yellow-400 rounded-lg hover:bg-yellow-500/30 transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-lg hover:bg-amber-500/20 transition-colors text-xs"
             >
-              <Pause className="h-4 w-4" />
-              <span className="text-sm">Pause</span>
+              <Pause className="h-3 w-3" />
+              <span>Pause</span>
             </button>
           )}
-          
           {isPaused && (
             <button
               onClick={onResume}
-              className="flex items-center space-x-2 px-3 py-2 bg-green-500/20 text-green-400 rounded-lg hover:bg-green-500/30 transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg hover:bg-emerald-500/20 transition-colors text-xs"
             >
-              <Play className="h-4 w-4" />
-              <span className="text-sm">Resume</span>
+              <Play className="h-3 w-3" />
+              <span>Resume</span>
             </button>
           )}
-          
           {(isGenerating || isPaused) && (
             <button
               onClick={onStop}
-              className="flex items-center space-x-2 px-3 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg hover:bg-red-500/20 transition-colors text-xs"
             >
-              <Square className="h-4 w-4" />
-              <span className="text-sm">Stop</span>
+              <Square className="h-3 w-3" />
+              <span>Stop</span>
             </button>
           )}
         </div>
@@ -93,63 +100,62 @@ export default function AIProgress({
 
       {/* Progress Bar */}
       <div className="mb-4">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-sm text-gray-400">Progress</span>
-          <span className="text-sm text-gray-400">{Math.round(progress)}%</span>
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-xs text-zinc-500">Progress</span>
+          <span className="text-xs text-zinc-500">{Math.round(progress)}%</span>
         </div>
-        <div className="w-full bg-gray-700 rounded-full h-2">
+        <div className="w-full bg-zinc-800 rounded-full h-1.5">
           <div
-            className={`h-2 rounded-full transition-all duration-300 ${
-              error ? 'bg-red-500' : isPaused ? 'bg-yellow-500' : 'bg-gradient-to-r from-blue-500 to-purple-500'
+            className={`h-1.5 rounded-full transition-all duration-300 ${
+              error ? 'bg-red-500' : isPaused ? 'bg-amber-500' : 'bg-indigo-500'
             }`}
             style={{ width: `${progress}%` }}
           />
         </div>
       </div>
 
-      {/* Current Task */}
       {currentTask && (
-        <div className="mb-4">
-          <p className="text-sm text-gray-400 mb-1">Current Task</p>
-          <p className="text-white text-sm">{currentTask}</p>
+        <div className="mb-3">
+          <p className="text-[11px] text-zinc-500 mb-0.5">Current Task</p>
+          <p className="text-sm text-zinc-200">{currentTask}</p>
         </div>
       )}
 
-      {/* Error Message */}
       {error && (
-        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
-          <div className="flex items-center space-x-2">
-            <AlertCircle className="h-4 w-4 text-red-400" />
-            <p className="text-red-400 text-sm">{error}</p>
+        <div className="mb-3 p-2.5 bg-red-500/10 border border-red-500/20 rounded-lg">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-3.5 w-3.5 text-red-400 flex-shrink-0" />
+            <p className="text-xs text-red-400">{error}</p>
           </div>
         </div>
       )}
 
-      {/* Recent Updates */}
       {recentUpdates.length > 0 && (
         <div>
-          <p className="text-sm text-gray-400 mb-3">Recent Activity</p>
-          <div className="space-y-2 max-h-32 overflow-y-auto">
+          <p className="text-[11px] text-zinc-500 mb-2">Recent Activity</p>
+          <div className="space-y-1.5 max-h-28 overflow-y-auto">
             {recentUpdates.slice(-5).map((update, index) => (
-              <div key={index} className="flex items-center space-x-3 text-sm">
+              <div key={index} className="flex items-center gap-2.5 text-xs">
                 <div className="flex-shrink-0">
                   {update.type === 'file_created' ? (
-                    <FileText className="h-4 w-4 text-green-400" />
+                    <FileText className="h-3 w-3 text-emerald-400" />
                   ) : update.type === 'file_updated' ? (
-                    <Code className="h-4 w-4 text-blue-400" />
+                    <Code className="h-3 w-3 text-indigo-400" />
                   ) : (
-                    <Loader2 className="h-4 w-4 text-gray-400" />
+                    <Loader2 className="h-3 w-3 text-zinc-500" />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-gray-300 truncate">{update.message}</p>
+                  <p className="text-zinc-400 truncate">{update.message}</p>
                   {update.currentFile && (
-                    <p className="text-gray-500 text-xs truncate">{update.currentFile}</p>
+                    <p className="text-zinc-600 text-[10px] truncate">
+                      {update.currentFile}
+                    </p>
                   )}
                 </div>
-                <div className="text-gray-500 text-xs">
+                <span className="text-zinc-600 text-[10px] flex-shrink-0">
                   {new Date(update.timestamp).toLocaleTimeString()}
-                </div>
+                </span>
               </div>
             ))}
           </div>

@@ -4,11 +4,10 @@ Main FastAPI application entry point for Lumnicode.
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from src.api import auth, projects, files, assist, health, debug, api_keys, websocket, ai_generation
+from src.api import auth, projects, files, assist, health, debug, api_keys, websocket, ai_generation, streaming
 from src.db.database import engine, Base
 from src.config import settings
-from src.services.ai_service import ai_service
-import asyncio
+from src.services.storage_service import storage_service
 import logging
 
 # Configure logging
@@ -21,7 +20,7 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI(
     title="Lumnicode API",
     description="AI-powered online code editor backend",
-    version="1.0.0"
+    version="2.0.0"
 )
 
 # CORS middleware
@@ -43,27 +42,22 @@ app.include_router(debug.router, prefix="/debug", tags=["debug"])
 app.include_router(api_keys.router, prefix="/api-keys", tags=["api-keys"])
 app.include_router(websocket.router, tags=["websocket"])
 app.include_router(ai_generation.router, prefix="/ai", tags=["ai-generation"])
+app.include_router(streaming.router, prefix="/assist", tags=["streaming"])
 
 
 @app.on_event("startup")
 async def startup_event():
-    """Ensure AI service resources are initialized on startup."""
-    logger.info("Starting up: initializing AI service session")
+    """Verify S3 storage connectivity on startup."""
+    logger.info("Starting up: checking S3 storage connectivity")
     try:
-        # Enter the async context to create aiohttp sessions and sub-services
-        await ai_service.__aenter__()
+        healthy = await storage_service.health_check()
+        if healthy:
+            logger.info("S3 storage connected successfully")
+        else:
+            logger.warning("S3 storage not available — file operations may fail")
     except Exception as e:
-        logger.warning(f"AI service failed to initialize on startup: {e}")
+        logger.warning("S3 health check failed: %s", e)
 
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Clean up AI service resources on shutdown."""
-    logger.info("Shutdown: closing AI service session")
-    try:
-        await ai_service.__aexit__(None, None, None)
-    except Exception as e:
-        logger.warning(f"AI service failed to clean up on shutdown: {e}")
 
 @app.get("/")
 async def root():

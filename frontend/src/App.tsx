@@ -1,4 +1,10 @@
-import { BrowserRouter as Router, Routes, Route, useParams, useLocation } from 'react-router-dom'
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  useParams,
+  useLocation,
+} from 'react-router-dom'
 import { SignedIn, SignedOut } from '@clerk/clerk-react'
 import { HelmetProvider } from 'react-helmet-async'
 import LandingPage from './components/LandingPage'
@@ -12,18 +18,18 @@ import ProjectCreationPage from './components/ProjectCreationPage'
 import { AdvancedEditor } from './components/AdvancedEditor'
 
 const AdvancedEditorWrapper = () => {
-  const { projectId } = useParams();
-  const location = useLocation();
-  const state = location.state as any;
-  
+  const { projectId } = useParams()
+  const location = useLocation()
+  const state = location.state as Record<string, unknown> | null
+
   return (
-    <AdvancedEditor 
-      projectId={projectId} 
+    <AdvancedEditor
+      projectId={projectId}
       aiPrompt={state?.aiPrompt}
       techStack={state?.techStack}
       autoStartAI={state?.autoStartAI}
     />
-  );
+  )
 }
 
 function App() {
@@ -44,8 +50,14 @@ function App() {
                 <Route path="api-keys" element={<APIKeyManager />} />
               </Route>
               <Route path="/create-project" element={<ProjectCreationPage />} />
-              <Route path="/project/:projectId" element={<AdvancedEditorWrapper />} />
-              <Route path="/editor/:projectId" element={<AdvancedEditorWrapper />} />
+              <Route
+                path="/project/:projectId"
+                element={<AdvancedEditorWrapper />}
+              />
+              <Route
+                path="/editor/:projectId"
+                element={<AdvancedEditorWrapper />}
+              />
             </Routes>
           </SignedIn>
         </div>

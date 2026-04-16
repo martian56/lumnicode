@@ -151,9 +151,11 @@ class File(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     name = Column(String(255), nullable=False)
     path = Column(String(500), nullable=False)  # full path within project
-    content = Column(Text, default="")
+    content = Column(Text, nullable=True)  # nullable: content now lives in S3
     language = Column(String(50), default="text")
     project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    s3_key = Column(String(1000), nullable=True)  # S3 object key
+    size_bytes = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
@@ -251,3 +253,27 @@ class UsageLog(Base):
 
     # Relationships
     user = relationship("User", back_populates="usage_logs")
+
+
+# --------------------------
+# AI GENERATION SESSION
+# --------------------------
+
+class AIGenerationSession(Base):
+    """Persisted AI generation session state for pause/resume across restarts."""
+    __tablename__ = "ai_generation_sessions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    status = Column(String(20), default="pending")  # pending, running, paused, completed, error
+    progress = Column(Integer, default=0)
+    prompt = Column(Text)
+    tech_stack = Column(JSON)
+    graph_state = Column(JSON, nullable=True)  # serialized LangGraph state
+    error_message = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    project = relationship("Project")
+    user = relationship("User")
