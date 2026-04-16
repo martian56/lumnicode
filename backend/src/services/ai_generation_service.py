@@ -1,414 +1,156 @@
+"""
+AI Generation Service - orchestrates project generation using LangGraph.
+"""
 import asyncio
-import json
 import uuid
-from datetime import datetime
-from typing import List, Dict, Any, Optional
 import logging
+from typing import Dict, Optional
 
-from src.services.multi_provider_ai_service import MultiProviderAIService
-from src.api.websocket import send_progress_update, create_ai_session, get_ai_session, update_ai_session
-from src.models.models import Project, File
-from src.db.database import get_db
 from sqlalchemy.orm import Session
+
+from src.models.models import AIGenerationSession
+from src.services.generation_graph import generation_workflow, GenerationState
 
 logger = logging.getLogger(__name__)
 
+
 class AIGenerationService:
     def __init__(self):
-        self.ai_service = MultiProviderAIService()
-        self.active_generations: Dict[str, asyncio.Task] = {}
+        self.active_tasks: Dict[str, asyncio.Task] = {}
 
     async def start_generation(
-        self, 
-        project_id: str, 
-        user_id: str, 
-        prompt: str, 
-        tech_stack: List[str],
-        db: Session
+        self,
+        project_id: str,
+        user_id: int,
+        prompt: str,
+        tech_stack: list[str],
+        db: Session,
+        progress_callback=None,
     ) -> str:
-        """Start AI generation for a project"""
-        
-        # Create AI session
-        session_id = create_ai_session(project_id, user_id, prompt, tech_stack)
-        
-        # Start generation task
-        task = asyncio.create_task(
-            self._generate_project(session_id, project_id, user_id, prompt, tech_stack, db)
+        """Start a new AI generation session."""
+        session_id = str(uuid.uuid4())
+
+        # Create DB session record
+        db_session = AIGenerationSession(
+            id=session_id,
+            project_id=project_id,
+            user_id=user_id,
+            status="running",
+            progress=0,
+            prompt=prompt,
+            tech_stack=tech_stack,
         )
-        self.active_generations[session_id] = task
-        
-        # Send initial progress
-        await send_progress_update(
-            session_id, 
-            "progress", 
-            "Starting AI generation...", 
-            0
-        )
-        
+        db.add(db_session)
+        db.commit()
+
+        # Build initial state
+        state: GenerationState = {
+            "project_id": project_id,
+            "user_id": user_id,
+            "session_id": session_id,
+            "prompt": prompt,
+            "tech_stack": tech_stack,
+            "plan": {},
+            "config_files": {},
+            "app_files": {},
+            "files_created": 0,
+            "total_files": 0,
+            "status": "running",
+            "error": None,
+            "_progress_callback": progress_callback,
+        }
+
+        # Run the graph in a background task
+        task = asyncio.create_task(self._run_generation(state, db))
+        self.active_tasks[session_id] = task
+
         return session_id
 
-    async def _generate_project(
-        self, 
-        session_id: str, 
-        project_id: str, 
-        user_id: str,
-        prompt: str, 
-        tech_stack: List[str],
-        db: Session
-    ):
-        """Generate project files using AI"""
-        
+    async def _run_generation(self, state: GenerationState, db: Session):
+        """Execute the LangGraph workflow."""
+        session_id = state["session_id"]
         try:
-            # Get project from database
-            project = db.query(Project).filter(Project.id == project_id).first()
-            if not project:
-                await send_progress_update(session_id, "error", "Project not found")
-                return
+            await generation_workflow.ainvoke(state)
+            self._update_db_session(session_id, status="completed", progress=100)
 
-            # Update session status
-            update_ai_session(session_id, status="running", progress=10)
-            
-            # Step 1: Analyze requirements and plan structure
-            await send_progress_update(
-                session_id, 
-                "progress", 
-                "Analyzing requirements and planning project structure...", 
-                10
-            )
-            
-            structure_prompt = f"""
-            Based on this prompt: "{prompt}"
-            And tech stack: {', '.join(tech_stack)}
-            
-            Create a detailed project structure with:
-            1. File organization
-            2. Dependencies needed
-            3. Key components/modules
-            4. Configuration files
-            
-            Return as JSON with this structure:
-            {{
-                "structure": [
-                    {{"path": "src/components/App.tsx", "type": "component", "description": "..."}},
-                    {{"path": "package.json", "type": "config", "description": "..."}}
-                ],
-                "dependencies": ["react", "typescript", ...],
-                "description": "Project overview"
-            }}
-            """
-            
-            structure_response = await self.ai_service.generate_text(
-                prompt=structure_prompt,
-                user_id=int(user_id) if user_id.isdigit() else hash(user_id) % (2**31),  # Convert to int safely
-                max_tokens=2000
-            )
-            
-            if not structure_response:
-                await send_progress_update(session_id, "error", "Failed to generate project structure")
-                return
-            
-            # Parse structure
-            try:
-                structure_data = json.loads(structure_response)
-                files_to_create = structure_data.get("structure", [])
-                dependencies = structure_data.get("dependencies", [])
-            except json.JSONDecodeError:
-                await send_progress_update(session_id, "error", "Failed to parse project structure")
-                return
-            
-            update_ai_session(session_id, progress=20, context={"structure": structure_data})
-            
-            # Step 2: Create package.json and configuration files
-            await send_progress_update(
-                session_id, 
-                "progress", 
-                "Creating configuration files...", 
-                20
-            )
-            
-            # Create package.json
-            package_json_content = await self._generate_package_json(tech_stack, dependencies, prompt)
-            await self._create_file(db, project_id, "package.json", package_json_content, session_id)
-            
-            # Create other config files based on tech stack
-            config_files = await self._generate_config_files(tech_stack, prompt)
-            for file_path, content in config_files.items():
-                await self._create_file(db, project_id, file_path, content, session_id)
-            
-            update_ai_session(session_id, progress=30)
-            
-            # Step 3: Generate main application files
-            await send_progress_update(
-                session_id, 
-                "progress", 
-                "Generating main application files...", 
-                30
-            )
-            
-            total_files = len(files_to_create)
-            completed_files = 0
-            
-            for file_info in files_to_create:
-                # Check if generation was stopped
-                session = get_ai_session(session_id)
-                if not session or session.get("status") != "running":
-                    await send_progress_update(session_id, "stopped", "Generation stopped by user")
-                    return
-                
-                file_path = file_info["path"]
-                file_type = file_info.get("type", "component")
-                description = file_info.get("description", "")
-                
-                # Generate file content
-                file_content = await self._generate_file_content(
-                    file_path, file_type, description, prompt, tech_stack, session_id
-                )
-                
-                if file_content:
-                    await self._create_file(db, project_id, file_path, file_content, session_id)
-                    completed_files += 1
-                    
-                    # Update progress
-                    progress = 30 + (completed_files / total_files) * 60
-                    await send_progress_update(
-                        session_id, 
-                        "file_created", 
-                        f"Created {file_path}", 
-                        int(progress),
-                        current_file=file_path,
-                        total_files=total_files,
-                        completed_files=completed_files
-                    )
-                    
-                    # Small delay to show progress
-                    await asyncio.sleep(0.5)
-            
-            # Step 4: Finalize project
-            await send_progress_update(
-                session_id, 
-                "progress", 
-                "Finalizing project...", 
-                90
-            )
-            
-            # Update project description
-            project.description = structure_data.get("description", prompt)
-            db.commit()
-            
-            # Complete generation
-            update_ai_session(session_id, status="completed", progress=100)
-            await send_progress_update(
-                session_id, 
-                "completed", 
-                "Project generation completed successfully!", 
-                100
-            )
-            
-            logger.info(f"AI generation completed for session {session_id}")
-            
+        except asyncio.CancelledError:
+            logger.info("Generation %s was cancelled", session_id)
+            self._update_db_session(session_id, status="stopped")
         except Exception as e:
-            logger.error(f"Error in AI generation: {e}")
-            await send_progress_update(session_id, "error", f"Generation failed: {str(e)}")
-            update_ai_session(session_id, status="error")
-        
+            logger.error("Generation %s failed: %s", session_id, e)
+            self._update_db_session(
+                session_id, status="error", error_message=str(e)
+            )
+            cb = state.get("_progress_callback")
+            if cb and callable(cb):
+                await cb(session_id, "error", f"Generation failed: {e}", 0)
         finally:
-            # Clean up
-            if session_id in self.active_generations:
-                del self.active_generations[session_id]
+            self.active_tasks.pop(session_id, None)
 
-    async def _generate_package_json(self, tech_stack: List[str], dependencies: List[str], prompt: str) -> str:
-        """Generate package.json content"""
-        
-        package_json_prompt = f"""
-        Create a package.json file for a project with:
-        - Tech stack: {', '.join(tech_stack)}
-        - Dependencies: {', '.join(dependencies)}
-        - Description: {prompt}
-        
-        Include appropriate scripts, devDependencies, and configuration.
-        Return only valid JSON.
-        """
-        
-        response = await self.ai_service.generate_text(
-            prompt=package_json_prompt,
-            user_id=int(user_id) if user_id.isdigit() else hash(user_id) % (2**31),
-            max_tokens=1000
-        )
-        
-        if response:
-            try:
-                # Validate JSON
-                json.loads(response)
-                return response
-            except json.JSONDecodeError:
-                pass
-        
-        # Fallback package.json
-        return json.dumps({
-            "name": "ai-generated-project",
-            "version": "1.0.0",
-            "description": prompt,
-            "main": "index.js",
-            "scripts": {
-                "dev": "vite",
-                "build": "vite build",
-                "preview": "vite preview"
-            },
-            "dependencies": dependencies,
-            "devDependencies": {
-                "vite": "^4.0.0",
-                "@types/node": "^18.0.0"
-            }
-        }, indent=2)
-
-    async def _generate_config_files(self, tech_stack: List[str], prompt: str) -> Dict[str, str]:
-        """Generate configuration files based on tech stack"""
-        config_files = {}
-        
-        if "react" in tech_stack or "vue" in tech_stack:
-            # Generate Vite config
-            vite_config = await self.ai_service.generate_text(
-                prompt=f"Create a vite.config.ts file for a {prompt} project with {', '.join(tech_stack)}",
-                user_id=int(user_id) if user_id.isdigit() else hash(user_id) % (2**31),
-                max_tokens=500
-            )
-            if vite_config:
-                config_files["vite.config.ts"] = vite_config
-        
-        if "typescript" in tech_stack:
-            # Generate tsconfig.json
-            tsconfig = await self.ai_service.generate_text(
-                prompt=f"Create a tsconfig.json file for a {prompt} project",
-                user_id=int(user_id) if user_id.isdigit() else hash(user_id) % (2**31),
-                max_tokens=300
-            )
-            if tsconfig:
-                config_files["tsconfig.json"] = tsconfig
-        
-        return config_files
-
-    async def _generate_file_content(
-        self, 
-        file_path: str, 
-        file_type: str, 
-        description: str, 
-        prompt: str, 
-        tech_stack: List[str],
-        session_id: str
-    ) -> Optional[str]:
-        """Generate content for a specific file"""
-        
-        file_prompt = f"""
-        Create a {file_type} file at {file_path} for a project with:
-        - Description: {prompt}
-        - Tech stack: {', '.join(tech_stack)}
-        - File purpose: {description}
-        
-        Make it production-ready with proper imports, error handling, and best practices.
-        Return only the file content, no explanations.
-        """
-        
+    def _update_db_session(
+        self, session_id: str, status: str = None,
+        progress: int = None, error_message: str = None
+    ):
+        """Update the generation session in the database."""
+        from src.db.database import SessionLocal
+        db = SessionLocal()
         try:
-            response = await self.ai_service.generate_text(
-                prompt=file_prompt,
-                user_id=int(user_id) if user_id.isdigit() else hash(user_id) % (2**31),
-                max_tokens=2000
-            )
-            return response
-        except Exception as e:
-            logger.error(f"Error generating file content for {file_path}: {e}")
-            return None
-
-    async def _create_file(self, db: Session, project_id: str, file_path: str, content: str, session_id: str):
-        """Create a file in the database"""
-        try:
-            # Check if file already exists
-            existing_file = db.query(File).filter(
-                File.project_id == project_id,
-                File.path == file_path
+            session = db.query(AIGenerationSession).filter(
+                AIGenerationSession.id == session_id
             ).first()
-            
-            if existing_file:
-                # Update existing file
-                existing_file.content = content
-                existing_file.updated_at = datetime.utcnow()
-            else:
-                # Create new file
-                new_file = File(
-                    id=str(uuid.uuid4()),
-                    project_id=project_id,
-                    name=file_path.split('/')[-1],  # Extract filename from path
-                    path=file_path,
-                    content=content,
-                    language=self._get_language_from_path(file_path)
-                )
-                db.add(new_file)
-            
-            db.commit()
-            
+            if session:
+                if status:
+                    session.status = status
+                if progress is not None:
+                    session.progress = progress
+                if error_message:
+                    session.error_message = error_message
+                db.commit()
         except Exception as e:
-            logger.error(f"Error creating file {file_path}: {e}")
+            logger.error("Failed to update session %s: %s", session_id, e)
             db.rollback()
-
-    def _get_language_from_path(self, file_path: str) -> str:
-        """Determine language from file path"""
-        extension = file_path.split('.')[-1].lower()
-        language_map = {
-            'js': 'javascript',
-            'jsx': 'javascript',
-            'ts': 'typescript',
-            'tsx': 'typescript',
-            'py': 'python',
-            'html': 'html',
-            'css': 'css',
-            'scss': 'scss',
-            'json': 'json',
-            'md': 'markdown',
-            'sql': 'sql',
-            'java': 'java',
-            'cpp': 'cpp',
-            'c': 'c',
-            'php': 'php',
-            'rb': 'ruby',
-            'go': 'go',
-            'rs': 'rust'
-        }
-        return language_map.get(extension, 'text')
-
-    def _get_file_type(self, file_path: str) -> str:
-        """Determine file type from path"""
-        if file_path.endswith('.tsx') or file_path.endswith('.jsx'):
-            return 'component'
-        elif file_path.endswith('.ts') or file_path.endswith('.js'):
-            return 'script'
-        elif file_path.endswith('.css') or file_path.endswith('.scss'):
-            return 'style'
-        elif file_path.endswith('.json'):
-            return 'config'
-        elif file_path.endswith('.md'):
-            return 'documentation'
-        else:
-            return 'other'
+        finally:
+            db.close()
 
     async def stop_generation(self, session_id: str):
-        """Stop AI generation"""
-        if session_id in self.active_generations:
-            self.active_generations[session_id].cancel()
-            del self.active_generations[session_id]
-        
-        update_ai_session(session_id, status="stopped")
+        """Stop an active generation."""
+        task = self.active_tasks.get(session_id)
+        if task and not task.done():
+            task.cancel()
+        self._update_db_session(session_id, status="stopped")
 
     async def pause_generation(self, session_id: str):
-        """Pause AI generation"""
-        update_ai_session(session_id, status="paused")
+        """Pause an active generation."""
+        self._update_db_session(session_id, status="paused")
 
     async def resume_generation(self, session_id: str):
-        """Resume AI generation"""
-        session = get_ai_session(session_id)
-        if session and session.get("status") == "paused":
-            update_ai_session(session_id, status="running")
-            # Restart generation from where it left off
-            # This would require more complex state management
+        """Resume a paused generation."""
+        self._update_db_session(session_id, status="running")
 
-# Singleton instance
+    def get_session(self, session_id: str) -> Optional[dict]:
+        """Get session status from database."""
+        from src.db.database import SessionLocal
+        db = SessionLocal()
+        try:
+            session = db.query(AIGenerationSession).filter(
+                AIGenerationSession.id == session_id
+            ).first()
+            if not session:
+                return None
+            return {
+                "id": str(session.id),
+                "project_id": str(session.project_id),
+                "user_id": session.user_id,
+                "status": session.status,
+                "progress": session.progress,
+                "prompt": session.prompt,
+                "tech_stack": session.tech_stack,
+                "error_message": session.error_message,
+                "created_at": session.created_at.isoformat() if session.created_at else None,
+                "updated_at": session.updated_at.isoformat() if session.updated_at else None,
+            }
+        finally:
+            db.close()
+
+
 ai_generation_service = AIGenerationService()
