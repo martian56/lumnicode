@@ -17,6 +17,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
       - name: Set up Python 3.12.5
         uses: actions/setup-python@v4
         with:
@@ -24,8 +27,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -r backend/requirements.txt
+          cd backend
+          uv sync --frozen
 
       - name: Run static/compile check (compileall)
         run: |
@@ -35,7 +38,7 @@ jobs:
         run: |
           # Start uvicorn in the background and write its PID so we can stop it later
           cd backend
-          python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload &
+          uv run uvicorn main:app --host 127.0.0.1 --port 8000 --reload &
           echo $! > /tmp/uvicorn.pid
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
